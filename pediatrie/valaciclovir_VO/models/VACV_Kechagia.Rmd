@@ -1,0 +1,140 @@
+---
+title: "Valaciclovir - Kechagia et al. 2015"
+output: html_document
+---
+
+# Development of a paediatric population pharmacokinetic model for valacyclovir from literature non-compartmental values originating from sparse studies and Bayesian priors: a simulation study (Kechagia IA, Dokoumetzidis A, J Pharmacokinet Pharmacodyn 2015)
+
+Reference: doi:10.1007/s10928-015-9412-6 (J Pharmacokinet Pharmacodyn 2015;42:237-250; Table 7, final model).
+
+**Model type: population pharmacokinetic model** (model-based meta-analysis of published non-compartmental values by age group, two-stage approach with informative Bayesian priors from Tod et al. 2001, NONMEM 7.2). Suitable for simulation and MAP Bayesian estimation, with caution: the model was built from group summary statistics (geometric means and CVs of Cmax, AUC, t1/2 and Tmax), not from individual concentrations; the individual residual error is not estimated (assumed, see Notes) and the covariates of the clearance model were imputed from age (see Notes).
+
+## Notes
+
+- Data: three phase I studies of an extemporaneous valaciclovir oral suspension in children aged 1 month to 11 years (Kimberlin et al. 2010; studies HS210914-HS210916): 11 dose/age groups (25 mg/kg single dose, 10 mg/kg twice daily, 20 mg/kg three times daily; 1-2, 3-5, 6-11, 12-23 months, 2-5 and 6-11 years), samples pre-dose and 0.5, 1, 2, 4, 6 h after the first dose. Only the geometric means and CVs of the NCA parameters per group (Table 2) were modelled (model B: NCA parameters recomputed from the sampling schedule).
+- Dose coding (explicit): "the equivalent acyclovir dose of the reported valacyclovir dose was used for the analysis, corrected by the respective molecular weights (valacyclovir MW = 324, acyclovir MW = 225)". `amt` is in mg of valaciclovir and the conversion is done in the model (MWR = 225/324 = 0.694); Fval = 0.53 is the molar bioavailability of aciclovir from valaciclovir.
+- Structure: one-compartment model, lag time (0.68 h) and first-order absorption (ka 3.8 h-1), first-order elimination.
+- **Ambiguity:** the Discussion states that the half-life of about 2.5 h is determined by 1/ka (flip-flop), which is not consistent with the final ka of 3.8 h-1. **Choice:** the Table 7 estimates; the typical elimination half-life is 1.2 h for an 11 kg child (V 12.4 L, CL 7.1 L/h).
+- Clearance (Eq. 10, covariate model and priors from Tod et al. 2001 for oral aciclovir): CL (L/h) = Fac x theta1 x GFR x (BSA/1.73) x (40/SCR), GFR (L/h/1.73 m2) = 7.2 x PCA^theta3 / (theta2^theta3 + PCA^theta3), with Fac = 0.12 (oral aciclovir bioavailability from Tod et al., fixed, so that CL is the true aciclovir clearance), theta1 24.6, theta2 10.4 months, theta3 6.12 (Table 7, final model); SCR in umol/L.
+- Volume (Eq. 11): V (L) = Fac x theta4 x (WT/6.9)^theta8 = 0.12 x 71.7 x (WT/6.9)^0.79 (11.5 L for 10 kg, as stated by the authors).
+- Covariates: PCA (postconceptional age, months) = age in months + 9 (term birth assumed, as in the article), computed from AGE (years); BSA (m2) = 0.02465 x WT^0.5378 x HT^0.3964, as printed in the article (Haycock formula; the printed constant 0.02465 reproduces the BSA values of Table 3, the original Haycock constant is 0.024265). PCA, GFR and BSA are captured.
+- **Ambiguity:** the population is described only by age groups; weight, height and serum creatinine were imputed by the authors from growth charts and reference intervals (Table 3). **Choice:** defaults of the 12-23 months group (Table 3): AGE 1.5 years (PCA 27 months), WT 11 kg, HT 80.3 cm, SCR 35 umol/L. Measured values should be used for MAP estimation.
+- IIV (stage 2, CV%): CL 21.8%, V 22.3%, ka 55.6%, converted with omega^2 = ln(1 + CV^2): 0.0464, 0.0485 and 0.2662. No IIV on Fval and tlag.
+- **Ambiguity:** the residual errors reported (sigma 20.7% in stage 1, 20.3% and 42.6% in stage 2) apply to the group means and CVs of the NCA parameters, not to individual concentrations. **Choice:** 20% proportional error (variance 0.04), no additive component, as for other models without published individual residual error.
+- Simulation check (typical children with the covariates of Table 3, first dose): AUC 25.0, 16.0 and 13.8 mg.h/L at 25 mg/kg for 1-2, 3-5 and 6-11 months (Table 2 geometric means 26.9, 16 and 13.7), 5.7, 11.4 and 14.2 mg.h/L at 10, 20 and 25 mg/kg for 12-23 months (6.44, 13.3 and 14.5), 7.0, 14.0 and 17.5 mg.h/L for 2-5 years (5.48, 9.59 and 19.8) and 11.1 and 22.2 mg.h/L at 10 and 20 mg/kg for 6-11 years (8.72 and 12.75). The model is dose-proportional, whereas the published group means are not (e.g. 2-5 years); Cmax is over-predicted by up to 40% in older children.
+
+```{r setup, message = FALSE}
+library(mrgsolve)
+library(mapbayr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r model}
+code <- '
+[PROB]
+Kechagia et al. 2015 - aciclovir after oral valaciclovir suspension in children 1 month to 11 years
+(model-based meta-analysis of NCA values of 11 dose/age groups with priors from Tod et al. 2001, NONMEM 7.2).
+One-compartment model, lag time, first-order absorption, Fval (molar). CL: sigmoid GFR maturation with PCA x BSA/1.73 x 40/SCR;
+V: power of weight. IIV on CL, V and ka. Proportional residual error (assumed).
+
+[SET] end = 24, delta = 0.1
+
+[PARAM] @annotated
+FAC     : 0.12  : Oral aciclovir bioavailability (Tod et al.), fixed scaling factor
+TH1     : 24.6  : Scaling factor of CL on estimated GFR
+GFRMAX  : 7.2   : Maximal GFR (L/h/1.73 m2)
+TH2     : 10.4  : PCA at half-maximal GFR (months)
+TH3     : 6.12  : Sigmoidicity coefficient of GFR maturation
+SCR_REF : 40    : Reference serum creatinine (umol/L)
+TH4     : 71.7  : Volume parameter (L), V = FAC x TH4 x (WT/6.9)^TH8
+TH8     : 0.79  : Exponent of weight on V
+WT_REF  : 6.9   : Reference weight (kg)
+TVKA    : 3.8   : Absorption rate constant (1/h)
+TVF     : 0.53  : Bioavailability of aciclovir from valaciclovir (molar)
+TLAG    : 0.68  : Lag time (h)
+MWR     : 0.694 : Molar mass ratio aciclovir/valaciclovir (225/324)
+ETA1    : 0     : IIV CL
+ETA2    : 0     : IIV V
+ETA3    : 0     : IIV KA
+
+[PARAM] @annotated @covariates
+AGE : 1.5  : Age (years) (ambiguous, see Notes)
+WT  : 11   : Body weight (kg) (ambiguous, see Notes)
+HT  : 80.3 : Height (cm) (ambiguous, see Notes)
+SCR : 35   : Serum creatinine (umol/L) (ambiguous, see Notes)
+
+[CMT] @annotated
+DEPOT : Depot, valaciclovir dose (mg) [ADM]
+CENT  : Central compartment, aciclovir (mg) [OBS]
+
+[MAIN]
+double PCA = AGE * 12 + 9;
+double GFR = GFRMAX * pow(PCA, TH3) / (pow(TH2, TH3) + pow(PCA, TH3));
+double BSA = 0.02465 * pow(WT, 0.5378) * pow(HT, 0.3964);
+double CL = FAC * TH1 * GFR * (BSA / 1.73) * (SCR_REF / SCR) * exp(ETA1 + ETA(1));
+double V  = FAC * TH4 * pow(WT / WT_REF, TH8) * exp(ETA2 + ETA(2));
+double KA = TVKA * exp(ETA3 + ETA(3));
+F_DEPOT = TVF * MWR;
+ALAG_DEPOT = TLAG;
+
+[ODE]
+dxdt_DEPOT = -KA * DEPOT;
+dxdt_CENT  =  KA * DEPOT - CL / V * CENT;
+
+[OMEGA] @annotated
+ECL : 0.0464 : IIV CL (variance, CV 21.8%)
+EV  : 0.0485 : IIV V (variance, CV 22.3%)
+EKA : 0.2662 : IIV KA (variance, CV 55.6%)
+
+[SIGMA] @annotated
+PROP : 0.04 : Proportional error (variance, CV 20%, assumed) (ambiguous, see Notes)
+ADD  : 0    : Additive error (mg/L), not estimated
+
+[TABLE]
+double IPRED = CENT / V;
+double DV = IPRED * (1 + EPS(1)) + EPS(2);
+int i = 0;
+while (DV < 0 && i < 100) { simeps(); DV = IPRED * (1 + EPS(1)) + EPS(2); ++i; }
+
+[CAPTURE] @annotated
+DV  : Aciclovir plasma concentration (mg/L)
+PCA : Postconceptional age (months)
+GFR : Estimated GFR (L/h/1.73 m2)
+BSA : Body surface area (m2)
+CL  : Individual clearance (L/h)
+V   : Individual volume of distribution (L)
+'
+mod <- mcode("VACV_Kechagia", code)
+```
+
+```{r simulation}
+# Typical children of the age groups of Table 3 (imputed covariates), single dose of valaciclovir suspension (first-dose NCA, Table 2)
+grp <- data.frame(ID = 1:11,
+                  Group = c("1-2 mo", "3-5 mo", "6-11 mo", "12-23 mo", "12-23 mo", "12-23 mo", "2-5 y", "2-5 y", "2-5 y", "6-11 y", "6-11 y"),
+                  dose = c(25, 25, 25, 10, 20, 25, 10, 20, 25, 10, 20),
+                  AGE = (c(10.5, 13, 18, 27, 27, 27, 57, 57, 57, 117, 117) - 9) / 12,
+                  WT = c(4.5, 6.5, 8.5, 11, 11, 11, 15.8, 15.8, 15.8, 29, 29),
+                  HT = c(55.3, 61.5, 69.9, 80.3, 80.3, 80.3, 100.75, 100.75, 100.75, 132.9, 132.9),
+                  SCR = c(41.44, 36.19, 35.30, 35.01, 35.01, 35.01, 40.12, 40.12, 40.12, 53.59, 53.59),
+                  AUC_GM = c(26.9, 16, 13.7, 6.44, 13.29, 14.5, 5.48, 9.59, 19.8, 8.72, 12.75),
+                  Cmax_GM = c(6.88, 4.67, 4.86, 2.35, 3.82, 4.14, 2, 3.59, 6.4, 3.05, 4.59))
+data <- grp %>% mutate(time = 0, evid = 1, cmt = 1, amt = dose * WT) %>% select(ID, time, evid, cmt, amt, AGE, WT, HT, SCR)
+
+out <- mod %>%
+  zero_re() %>%
+  data_set(data) %>%
+  mrgsim(end = 48, delta = 0.02) %>%
+  as.data.frame()
+
+# AUC0-48 (about AUC0-inf) and Cmax of the typical child versus the geometric means of Table 2
+out %>% group_by(ID) %>%
+  summarise(CL = CL[1], V = V[1], Cmax = max(DV), AUC = sum(diff(time) * (head(DV, -1) + tail(DV, -1)) / 2)) %>%
+  left_join(grp %>% select(ID, Group, dose, AUC_GM, Cmax_GM), by = "ID")
+
+ggplot(out %>% filter(ID %in% c(1, 6, 9, 11), time <= 12), aes(time, DV, colour = factor(ID, labels = c("1-2 mo, 25 mg/kg", "12-23 mo, 25 mg/kg", "2-5 y, 25 mg/kg", "6-11 y, 20 mg/kg")))) +
+  geom_line() +
+  theme_bw() +
+  labs(x = "Time (h)", y = "Aciclovir concentration (mg/L)", colour = NULL,
+       title = "Kechagia et al. 2015 - single dose of valaciclovir suspension, typical children")
+```
