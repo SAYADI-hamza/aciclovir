@@ -15,8 +15,8 @@ precision dosing.
 
 | Folder | Population | Route | Prefix | Models |
 |---|---|---|---|---|
-| `adulte/aciclovir_IV/` | Adults | Intravenous aciclovir | `ACV_` | 2 (including 1 illustrative CNS PBPK model) |
-| `adulte/valaciclovir_VO/` | Adults | Oral valaciclovir | `VACV_` | 4 |
+| `adulte/aciclovir_IV/` | Adults | Intravenous aciclovir | `ACV_` | 4 (including 3 illustrative models: 2 CNS PBPK, 1 vitreous) |
+| `adulte/valaciclovir_VO/` | Adults | Oral valaciclovir | `VACV_` | 6 (including 2 illustrative models: 1 CNS PBPK, 1 vitreous) |
 | `pediatrie/aciclovir_IV/` | Children and neonates | Intravenous aciclovir | `ACV_` | 5 |
 | `pediatrie/valaciclovir_VO/` | Children | Oral valaciclovir | `VACV_` | 3 |
 

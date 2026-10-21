@@ -1,0 +1,113 @@
+---
+title: "Aciclovir - Liu et al. 2017"
+output: html_document
+---
+
+# Valacyclovir as Initial Treatment for Acute Retinal Necrosis: A Pharmacokinetic Modeling and Simulation Study (Liu T, Jain A, Fung M, Vinnard C, Ivaturi V, Curr Eye Res 2017)
+
+Reference: doi:10.1080/02713683.2016.1231323 (Curr Eye Res 2017;42(7):1035-1038; Table 1 and equations of the Methods).
+
+**Model type: illustrative model only, not a population pharmacokinetic model** (serum parameters fixed to literature values, vitreous partition coefficient estimated by a naive-pooled approach on one paired serum/vitreous sample per patient after oral valaciclovir, Phoenix NLME 1.4; no interindividual variability estimated). Kept for illustration of vitreous exposure in acute retinal necrosis; not intended for MAP Bayesian estimation.
+
+## Notes
+
+- The model was developed from oral valaciclovir data (see `adulte/valaciclovir_VO/models/VACV_Liu_2017.Rmd`); the authors simulated IV aciclovir 700 mg every 8 h (10 mg/kg for 70 kg) as the standard-of-care comparator. This file is the IV version, with the same disposition and vitreous parameters.
+- Dose: `amt` in mg of aciclovir. **Ambiguity:** the infusion duration of the simulated IV regimen is not reported. **Choice:** 1-h infusion (`rate = amt / 1`).
+- Serum model (fixed literature values, Table 1): one-compartment, Vcentral 49.6 L, CLstd 19.7 L/h at 30 years, CL = CLstd - 0.1 x (AGE - 30) (L/h).
+- Vitreous compartment: dAv/dt = Qv x (1 - HC) x (C - Cv/Kp), Vvitreal 0.004 L, Qretinal 0.26 (printed mL/h, used as 0.00026 L/h, see the oral version), hematocrit 47% (men) or 41% (women), Kp 0.255.
+- **Ambiguity:** the article states that the vitreous concentrations after IV aciclovir 700 mg every 8 h fell between those of valaciclovir 1.5 and 2 g every 8 h. With the published parameters, the IV regimen gives a vitreous Cmin between those of valaciclovir 1 and 1.5 g every 8 h (0.91 vs 0.83 and 1.13 mg/L at 30 years; 1.19 vs 1.05 and 1.43 mg/L at 70 years). **Choice:** published parameters kept.
+- Residual error (Table 1): proportional, serum 0.203 and vitreous 0.252, used as SDs (variances 0.0412 and 0.0635). Serum (cmt 1) and vitreous (cmt 2) are the two observation types, captured as `PAR` and `MET` (names required by mapbayr; MET is not a metabolite here).
+- Variability: none estimated (naive pooled). For mapbayr compatibility only, nominal random effects of 30% (omega^2 0.0862, assumed) are placed on CL and Vcentral; they are not published estimates.
+- Target used by the authors: vitreous Cmin above the mean IC50 of VZV (0.82 mg/L; maximum 1.41 mg/L).
+
+```{r setup, message = FALSE}
+library(mrgsolve)
+library(mapbayr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r model}
+code <- '
+[PROB]
+Liu et al. 2017 - aciclovir in serum and vitreous after IV aciclovir (simulated comparator of a model built on oral
+valaciclovir data in acute retinal necrosis, Phoenix NLME 1.4). One-compartment serum model with age effect on CL,
+vitreous compartment supplied by the retinal blood flow. No IIV estimated (nominal values for mapbayr only). Proportional errors.
+
+[SET] end = 24, delta = 0.1
+
+[PARAM] @annotated
+TVV    : 49.6    : Central volume (L)
+TVCL   : 19.7    : Clearance at 30 years (L/h)
+TH_AGE : 0.1     : Decrease of CL per year above 30 (L/h per year)
+QRET   : 0.00026 : Retinal blood flow (L/h; printed 0.26 mL/h) (ambiguous, see Notes)
+VVIT   : 0.004   : Vitreous volume (L)
+KP     : 0.255   : Vitreous-to-serum partition coefficient
+ETA1   : 0       : Nominal random effect CL (not estimated)
+ETA2   : 0       : Nominal random effect V (not estimated)
+
+[PARAM] @annotated @covariates
+AGE : 30 : Age (years)
+SEX : 1  : Sex (1 = male, 0 = female), hematocrit 0.47 or 0.41
+
+[CMT] @annotated
+CENT : Central compartment, aciclovir (mg) [ADM, OBS]
+VIT  : Vitreous humour, aciclovir (mg) [OBS]
+
+[MAIN]
+double CL = (TVCL - TH_AGE * (AGE - 30)) * exp(ETA1 + ETA(1));
+double V  = TVV * exp(ETA2 + ETA(2));
+double HC = (SEX == 1) ? 0.47 : 0.41;
+
+[ODE]
+double CS = CENT / V;
+dxdt_CENT = -CL * CS;
+dxdt_VIT  =  QRET * (1 - HC) * (CS - VIT / VVIT / KP);
+
+[OMEGA] @annotated
+ECL : 0.0862 : Nominal random effect CL (variance, CV 30%, assumed, not published)
+EV  : 0.0862 : Nominal random effect V (variance, CV 30%, assumed, not published)
+
+[SIGMA] @annotated
+PROP_S : 0.0412 : Proportional error, serum (variance, SD 0.203)
+ADD_S  : 0      : Additive error, serum, not estimated
+PROP_V : 0.0635 : Proportional error, vitreous (variance, SD 0.252)
+ADD_V  : 0      : Additive error, vitreous, not estimated
+
+[TABLE]
+double PAR = CENT / V;
+double MET = VIT / VVIT;
+double DV = PAR * (1 + EPS(1)) + EPS(2);
+if (self.cmt == 2) DV = MET * (1 + EPS(3)) + EPS(4);
+
+[CAPTURE] @annotated
+DV  : Aciclovir concentration, serum or vitreous according to cmt (mg/L)
+PAR : Aciclovir serum concentration (mg/L)
+MET : Aciclovir vitreous concentration (mg/L)
+CL  : Individual clearance (L/h)
+'
+mod <- mcode("ACV_Liu_2017", code)
+```
+
+```{r simulation}
+# IV aciclovir 700 mg every 8 h (1-h infusion), typical man aged 30 and 70 years, steady state (day 7)
+data <- data.frame(ID = 1:2, time = 0, evid = 1, cmt = 1, amt = 700, rate = 700, ii = 8, addl = 20, AGE = c(30, 70))
+
+out <- mod %>%
+  zero_re() %>%
+  data_set(data) %>%
+  mrgsim(end = 168, delta = 0.05, carry_out = "AGE") %>%
+  as.data.frame() %>%
+  filter(time >= 160)
+
+# Article (Fig. 3): vitreous concentrations after IV aciclovir between those of valaciclovir 1.5 and 2 g every 8 h (1.40-1.86 mg/L)
+out %>% group_by(AGE) %>%
+  summarise(Serum_Cmax = max(PAR), Serum_Cmin = min(PAR), Vitreous_Cmax = max(MET), Vitreous_Cmin = min(MET))
+
+ggplot(out, aes(time - 160, MET, colour = factor(AGE))) +
+  geom_line() +
+  geom_hline(yintercept = c(0.82, 1.41), linetype = 2) +
+  theme_bw() +
+  labs(x = "Time after dose (h)", y = "Vitreous aciclovir concentration (mg/L)", colour = "Age (years)",
+       title = "Liu et al. 2017 - IV aciclovir 700 mg every 8 h, vitreous, steady state")
+```

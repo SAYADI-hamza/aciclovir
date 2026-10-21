@@ -190,7 +190,7 @@ C_ECF : Aciclovir concentration in brain extracellular fluid (mg/L)
 CLE   : Plasma clearance (L/h)
 VCEN  : Plasma central volume (L)
 '
-mod <- mcode("ACV_Sun", code)
+mod <- mcode("ACV_Sun_2025", code)
 ```
 
 ```{r simulation}
