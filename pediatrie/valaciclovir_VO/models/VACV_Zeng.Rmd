@@ -1,0 +1,151 @@
+---
+title: "Valaciclovir - Zeng et al. 2009"
+output: html_document
+---
+
+# Population Pharmacokinetics of Acyclovir in Children and Young People with Malignancy after Administration of Intravenous Acyclovir or Oral Valacyclovir (Zeng L, Nath CE, Blair EYL, Shaw PJ, Stephen K, Earl JW, Coakley JC, McLachlan AJ, Antimicrob Agents Chemother 2009)
+
+Reference: doi:10.1128/AAC.01138-08 (Antimicrob Agents Chemother 2009;53(7):2918-2927; Table 3).
+
+**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, FOCE with interaction, NONMEM V). Suitable for simulation and MAP Bayesian estimation. Caution: the default serum creatinine is assumed and the dose unit of the bioavailability is not stated (see Notes).
+
+## Notes
+
+- Study: prospective single-centre study (Sydney), 43 children and young people with malignancy aged 0.8-19.9 years (25 IV aciclovir only, 7 oral valaciclovir only, 11 both), 1,216 plasma concentrations (HPLC, LOQ 0.1 mg/L). Median (range) age 6.3 (0.8-19.9) years, weight 19.6 (7.3-70.2) kg, height 111.0 (69.0-173.5) cm, BSA 0.77 m2, Counahan CLCR 3.7 (2.0-5.7) L/h/m2; 25 males, 18 females (Table 1).
+- The article models IV aciclovir and oral valaciclovir simultaneously. This file is the oral valaciclovir version (depot compartment, first-order absorption, bioavailability). The IV version is `pediatrie/aciclovir_IV/models/ACV_Zeng.Rmd`, with identical disposition parameters, covariates, IIV and IOV on CL and V.
+- Dose: valaciclovir 10 mg/kg twice daily; `amt` in mg of valaciclovir (tablet strength).
+- **Ambiguity:** the article does not state whether valaciclovir doses were entered as mg of valaciclovir or converted to aciclovir equivalents. **Choice:** conversion to aciclovir equivalents inside the model (MWR = 225.2/324.3 = 0.694), so that F = 0.60 is a molar bioavailability, comparable with the 54% reported in adults and cited by the authors. With this choice, the typical times above IC50 after valaciclovir exceed the Table 5 medians by about the same margin (2.5-3.5 h) as the IV times exceed the Table 4 medians (about 2.3 h); without conversion (MWR = 1) the excess would be about 5 h and the exposures 44% higher.
+- Structure: one-compartment model, first-order absorption (no lag time), first-order elimination. ka = 0.63 h-1, F = 0.60 (Table 3).
+- Covariates (final model): CL = 3.55 x (WT/19.6)^0.75 x (CLCR/3.7)^0.51; V = 7.36 x (WT/19.6). CLCR is the Counahan-Barratt estimate, CLCR (mL/min/1.73 m2) = 0.43 x HT (cm) / SCR (mg/dL), "standardized to the value per m2" and expressed in L/h/m2; it is computed in the model (SCR in umol/L divided by 88.4) and captured in both units.
+- **Ambiguity:** the conversion from mL/min/1.73 m2 to L/h/m2 is not detailed. **Choice:** CLCR (L/h/m2) = CLCR (mL/min/1.73 m2) x 0.06 / 1.73; the reported range 2.0-5.7 L/h/m2 then corresponds to 58-164 mL/min/1.73 m2.
+- **Ambiguity:** the median serum creatinine is not reported. **Choice:** SCR = 40 umol/L, which with the median height (111 cm) gives CLCR 3.7 L/h/m2, the reference value. Default covariates: WT 19.6 kg, HT 111 cm, SCR 40 umol/L.
+- IIV (Table 3, CV%): CL 23.6%, V 35.9%, ka 58.1%, F 41.8%, converted with omega^2 = ln(1 + CV^2): 0.0542, 0.1211, 0.2911 and 0.1606.
+- **Ambiguity:** IIV on F is exponential ("exponential error model" for all parameters) and can give F > 1. **Choice:** exponential IIV, individual F truncated at 1.
+- IOV (Table 3, CV%): CL 19.2%, V 30.4% (omega^2 0.0362 and 0.0883), occasions of 7 days; implemented with two paired occasions (covariate OCC).
+- Residual error: Y = IPRED x exp(eps1) + eps2, approximated by a combined proportional/additive error. **Ambiguity:** sigma1 = 0.26 and sigma2 = 0.1 are not stated as SDs or variances. **Choice:** SDs (proportional CV 26%, additive SD 0.1 mg/L), i.e. variances 0.0676 and 0.01.
+- Targets used by the authors: time above IC50 (0.56 mg/L for HSV, 1.125 mg/L for VZV) > 12 h per 24 h ("maximal efficacy").
+- Simulation check (10 mg/kg twice daily, typical patients): time above 0.56 / 1.125 mg/L per 24 h of 18.7 / 14.9 h, 14.7 / 11.4 h and 13.2 / 10.2 h for a 10 kg child with CLCR 2.0, 4.0 and 5.5 L/h/m2 (article, Table 5, medians of 1,000 simulated patients: 16.1 / 12.6, 11.3 / 8.8 and 9.6 / 7.5 h).
+
+```{r setup, message = FALSE}
+library(mrgsolve)
+library(mapbayr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r model}
+code <- '
+[PROB]
+Zeng et al. 2009 - aciclovir after oral valaciclovir in children and young people with malignancy
+(43 patients, 1,216 samples after IV aciclovir and oral valaciclovir, NONMEM V FOCE-I). One-compartment model,
+first-order absorption, F estimated. Covariates: weight (allometry) and Counahan CLCR (computed from HT and SCR, power) on CL,
+weight on V. IIV on CL, V, ka and F; IOV (two occasions) on CL and V. Combined residual error.
+
+[SET] end = 24, delta = 0.1
+
+[PARAM] @annotated
+TVCL     : 3.55 : Clearance for 19.6 kg and CLCR 3.7 L/h/m2 (L/h)
+TH_CLCR  : 0.51 : Exponent of CLCR on CL (renal function factor)
+CLCR_REF : 3.7  : Reference CLCR, median (L/h/m2)
+WT_REF   : 19.6 : Reference weight, median (kg)
+TVV      : 7.36 : Volume of distribution for 19.6 kg (L)
+TVKA     : 0.63 : Absorption rate constant (1/h)
+TVF      : 0.60 : Bioavailability of aciclovir from valaciclovir
+MWR      : 0.694 : Molar mass ratio aciclovir/valaciclovir (225.2/324.3) (ambiguous, see Notes)
+ETA1     : 0    : IIV CL
+ETA2     : 0    : IIV V
+ETA3     : 0    : IIV KA
+ETA4     : 0    : IIV F
+ETA5     : 0    : IOV CL, occasion 1
+ETA6     : 0    : IOV CL, occasion 2
+ETA7     : 0    : IOV V, occasion 1
+ETA8     : 0    : IOV V, occasion 2
+
+[PARAM] @annotated @covariates
+WT  : 19.6 : Body weight (kg)
+HT  : 111  : Height (cm)
+SCR : 40   : Serum creatinine (umol/L) (ambiguous, see Notes)
+OCC : 1    : Occasion (1 or 2)
+
+[CMT] @annotated
+DEPOT : Depot, valaciclovir dose (mg) [ADM]
+CENT  : Central compartment, aciclovir (mg) [OBS]
+
+[MAIN]
+double CLCR_N = 0.43 * HT / (SCR / 88.4);
+double CLCR = CLCR_N * 0.06 / 1.73;
+double IOVCL = (OCC == 2) ? (ETA6 + ETA(6)) : (ETA5 + ETA(5));
+double IOVV  = (OCC == 2) ? (ETA8 + ETA(8)) : (ETA7 + ETA(7));
+double CL = TVCL * pow(WT / WT_REF, 0.75) * pow(CLCR / CLCR_REF, TH_CLCR) * exp(ETA1 + ETA(1) + IOVCL);
+double V  = TVV * (WT / WT_REF) * exp(ETA2 + ETA(2) + IOVV);
+double KA = TVKA * exp(ETA3 + ETA(3));
+double F  = TVF * exp(ETA4 + ETA(4));
+if (F > 1) F = 1;
+F_DEPOT = F * MWR;
+
+[ODE]
+dxdt_DEPOT = -KA * DEPOT;
+dxdt_CENT  =  KA * DEPOT - CL / V * CENT;
+
+[OMEGA] @annotated
+ECL : 0.0542 : IIV CL (variance, CV 23.6%)
+EV  : 0.1211 : IIV V (variance, CV 35.9%)
+EKA : 0.2911 : IIV KA (variance, CV 58.1%)
+EF  : 0.1606 : IIV F (variance, CV 41.8%)
+
+[OMEGA] @annotated
+EOCL1 : 0.0362 : IOV CL occasion 1 (variance, CV 19.2%)
+EOCL2 : 0.0362 : IOV CL occasion 2 (variance, CV 19.2%)
+EOV1  : 0.0883 : IOV V occasion 1 (variance, CV 30.4%)
+EOV2  : 0.0883 : IOV V occasion 2 (variance, CV 30.4%)
+
+[SIGMA] @annotated
+PROP : 0.0676 : Proportional error (variance, SD 0.26) (ambiguous, see Notes)
+ADD  : 0.01   : Additive error (variance, SD 0.1 mg/L) (ambiguous, see Notes)
+
+[TABLE]
+double IPRED = CENT / V;
+double DV = IPRED * (1 + EPS(1)) + EPS(2);
+int i = 0;
+while (DV < 0 && i < 100) { simeps(); DV = IPRED * (1 + EPS(1)) + EPS(2); ++i; }
+
+[CAPTURE] @annotated
+DV     : Aciclovir plasma concentration (mg/L)
+CLCR_N : Creatinine clearance, Counahan (mL/min/1.73 m2)
+CLCR   : Creatinine clearance, Counahan (L/h/m2)
+CL     : Individual clearance (L/h)
+V      : Individual volume of distribution (L)
+KA     : Individual absorption rate constant (1/h)
+F      : Individual bioavailability
+'
+mod <- mcode("VACV_Zeng", code)
+```
+
+```{r simulation}
+# Authors' simulation scenarios (Table 5): valaciclovir 10 mg/kg twice daily, weights 10, 25 and 50 kg,
+# CLCR 2.0, 4.0 and 5.5 L/h/m2 (HT 111 cm; SCR computed to give each CLCR), steady state
+data <- expand.grid(WT = c(10, 25, 50), CLCR = c(2.0, 4.0, 5.5)) %>%
+  mutate(ID = row_number(), time = 0, evid = 1, cmt = 1, amt = 10 * WT, ii = 12, addl = 7,
+         HT = 111, SCR = 0.43 * HT / (CLCR * 1.73 / 0.06) * 88.4) %>%
+  select(-CLCR)
+
+out <- mod %>%
+  zero_re() %>%
+  data_set(data) %>%
+  mrgsim(end = 96, delta = 0.05, carry_out = "WT") %>%
+  as.data.frame() %>%
+  filter(time >= 72)
+
+# Time above IC50 over 24 h at steady state (article, Table 5, medians of 1,000 simulated patients:
+# HSV 16.1 / 11.3 / 9.6 h and VZV 12.6 / 8.8 / 7.5 h for 10 kg and CLCR 2.0 / 4.0 / 5.5 L/h/m2)
+out %>% group_by(ID) %>%
+  summarise(WT = WT[1], CLCR = round(CLCR[1], 1), CL = CL[1], Cmax = max(DV), Cmin = min(DV[time > 72]),
+            T_HSV = 0.05 * sum(DV[time > 72] > 0.56), T_VZV = 0.05 * sum(DV[time > 72] > 1.125))
+
+ggplot(out %>% filter(CLCR > 3.9 & CLCR < 4.1), aes(time - 72, DV, colour = factor(WT))) +
+  geom_line() +
+  geom_hline(yintercept = c(0.56, 1.125), linetype = 2) +
+  theme_bw() +
+  labs(x = "Time (h)", y = "Aciclovir concentration (mg/L)", colour = "Weight (kg)",
+       title = "Zeng et al. 2009 - valaciclovir 10 mg/kg every 12 h, CLCR 4.0 L/h/m2, steady state")
+```

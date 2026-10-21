@@ -1,0 +1,117 @@
+---
+title: "Aciclovir - Sampson et al. 2014"
+output: html_document
+---
+
+# Population Pharmacokinetics of Intravenous Acyclovir in Preterm and Term Infants (Sampson MR, Bloom BT, Lenfestey RW, Harper B, Kashuba AD, Anand R, Benjamin DK Jr, Capparelli E, Cohen-Wolkowiez M, Smith PB, Pediatr Infect Dis J 2014)
+
+Reference: doi:10.1097/01.inf.0000435509.75114.3d (Pediatr Infect Dis J 2014;33(1):42-49; Table 3).
+
+**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, FOCE with interaction, NONMEM 7). Suitable for simulation and MAP Bayesian estimation.
+
+## Notes
+
+- Study: two open-label studies (Pediatric Trials Network), 28 preterm and term infants < 31 days postnatal age with relatively normal renal function, 81 plasma samples (LC-MS/MS, LLOQ 0.1 mg/L). Median (range) GA 30 (23-40) weeks, PNA 3 (1-30) days, PMA 31 (25-41) weeks, weight 1370 (578-5720) g, SCR 0.9 (0.3-1.8) mg/dL (Table 1). Doses: 500 mg/m2 every 8 h (study 1); 10 or 20 mg/kg every 12 h or 20 mg/kg every 8 h according to GA and PNA (study 2). Intravenous only.
+- Dose: `amt` in mg of aciclovir, 1-h infusion in both studies (`rate = amt / 1`).
+- Structure: one-compartment model, first-order elimination (a two-compartment model did not improve the fit).
+- Covariates (Table 3, final model): CL (L/h) = 0.305 x WT x (PMA/31.3)^3.02; V (L) = 2.80 x WT (weight exponent fixed to 1 on both). SCR was not retained once PMA was in the model. PMA (weeks) is computed in the model as GA + PNA/7 and captured.
+- Default covariates: medians of Table 1: WT 1.37 kg, GA 30 weeks, PNA 3 days (PMA 30.4 weeks; the reference value of the model, 31.3 weeks, is a constant in [PARAM]).
+- IIV (Table 3, CV%): CL 52.8% and V 85.0%, converted with omega^2 = ln(1 + CV^2): 0.2459 and 0.5419. Correlation CL-V 0.98, i.e. covariance 0.98 x sqrt(0.2459 x 0.5419) = 0.3577 (block). The authors note that the correlation is very high and that simulations without IIV on V gave similar results.
+- Residual error: proportional, CV 34.5% (variance 0.119); no additive component (a combined model did not improve the fit).
+- Targets used by the authors: C50ss (concentration at mid-interval) >= 3 mg/L as primary efficacy target, Cminss >= 1 mg/L; Cmaxss < 50 mg/L (safety). Proposed dosing: 20 mg/kg every 12 h (PMA < 30 weeks), every 8 h (30 to < 36 weeks), every 6 h (36-41 weeks).
+- Simulation check (typical parameters, proposed dosing): PMA 28 weeks, 20 mg/kg every 12 h: Cmaxss 11.3, C50ss 7.4, Cminss 4.8 mg/L; PMA 33 weeks, every 8 h: 10.5, 6.7, 4.3 mg/L; PMA 38 weeks, every 6 h: 9.4, 5.8, 3.5 mg/L. Consistent with the post hoc medians of Table 4 (Cmaxss 10.3 / 8.8 / 12.4, C50ss 7.1 / 6.8 / 5.8, Cminss 3.9 / 5.1 / 2.9 mg/L for PMA < 30, 30 to < 36 and 36-41 weeks, with the study doses).
+
+```{r setup, message = FALSE}
+library(mrgsolve)
+library(mapbayr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r model}
+code <- '
+[PROB]
+Sampson et al. 2014 - intravenous aciclovir in preterm and term infants < 31 days postnatal age
+(28 infants, 81 samples, NONMEM 7 FOCE-I). One-compartment model, first-order elimination.
+Covariates: weight (linear) and PMA (power) on CL, weight (linear) on V; PMA computed from GA and PNA.
+Correlated IIV on CL and V. Proportional residual error.
+
+[SET] end = 24, delta = 0.1
+
+[PARAM] @annotated
+TVCL    : 0.305 : Clearance for PMA 31.3 weeks (L/h/kg)
+TH_PMA  : 3.02  : Exponent of PMA on CL
+PMA_REF : 31.3  : Reference PMA (weeks)
+TVV     : 2.80  : Volume of distribution (L/kg)
+ETA1    : 0     : IIV CL
+ETA2    : 0     : IIV V
+
+[PARAM] @annotated @covariates
+WT  : 1.37 : Body weight (kg)
+GA  : 30   : Gestational age (weeks)
+PNA : 3    : Postnatal age (days)
+
+[CMT] @annotated
+CENT : Central compartment, aciclovir (mg) [ADM, OBS]
+
+[MAIN]
+double PMA = GA + PNA / 7;
+double CL = TVCL * WT * pow(PMA / PMA_REF, TH_PMA) * exp(ETA1 + ETA(1));
+double V  = TVV * WT * exp(ETA2 + ETA(2));
+
+[ODE]
+dxdt_CENT = -CL / V * CENT;
+
+[OMEGA] @annotated @block
+ECL : 0.2459        : IIV CL (variance, CV 52.8%)
+EV  : 0.3577 0.5419 : IIV V (variance, CV 85.0%), covariance CL-V (correlation 0.98)
+
+[SIGMA] @annotated
+PROP : 0.119 : Proportional error (variance, CV 34.5%)
+ADD  : 0     : Additive error (mg/L), not estimated
+
+[TABLE]
+double IPRED = CENT / V;
+double DV = IPRED * (1 + EPS(1)) + EPS(2);
+int i = 0;
+while (DV < 0 && i < 100) { simeps(); DV = IPRED * (1 + EPS(1)) + EPS(2); ++i; }
+
+[CAPTURE] @annotated
+DV  : Aciclovir plasma concentration (mg/L)
+PMA : Postmenstrual age (weeks)
+CL  : Individual clearance (L/h)
+V   : Individual volume of distribution (L)
+'
+mod <- mcode("ACV_Sampson", code)
+```
+
+```{r simulation}
+# Proposed PMA-based dosing (20 mg/kg, 1-h infusion), typical infants at steady state:
+# PMA 28 weeks (GA 27, PNA 7 d, 1.0 kg) q12h; PMA 33 weeks (GA 32, PNA 7 d, 1.8 kg) q8h; PMA 38 weeks (GA 37, PNA 7 d, 3.0 kg) q6h
+wt <- c(1.0, 1.8, 3.0)
+ii <- c(12, 8, 6)
+data <- data.frame(ID = 1:3, time = 0, evid = 1, cmt = 1, amt = 20 * wt, rate = 20 * wt, ii = ii,
+                   addl = 96 / ii - 1, WT = wt, GA = c(27, 32, 37), PNA = 7)
+
+out <- mod %>%
+  zero_re() %>%
+  data_set(data) %>%
+  mrgsim(end = 96, delta = 0.05) %>%
+  as.data.frame() %>%
+  left_join(data %>% select(ID, ii), by = "ID") %>%
+  filter(time >= 96 - ii) %>%
+  mutate(time = time - (96 - ii),
+         Group = factor(ID, labels = c("PMA 28 wk, q12h", "PMA 33 wk, q8h", "PMA 38 wk, q6h")))
+
+# Article (Table 4, post hoc medians): Cmaxss 10.3 / 8.8 / 12.4, C50ss 7.1 / 6.8 / 5.8, Cminss 3.9 / 5.1 / 2.9 mg/L
+out %>% group_by(Group) %>%
+  summarise(PMA = PMA[1], CL_kg = CL[1] / data$WT[ID[1]], Cmax = max(DV), C50 = DV[which.min(abs(time - ii[1] / 2 - 0.5))],
+            Cmin = min(DV[time > 0]), AUCtau = sum(diff(time) * (head(DV, -1) + tail(DV, -1)) / 2))
+
+ggplot(out, aes(time, DV, colour = Group)) +
+  geom_line() +
+  geom_hline(yintercept = 3, linetype = 2) +
+  theme_bw() +
+  labs(x = "Time after dose (h)", y = "Aciclovir concentration (mg/L)", colour = NULL,
+       title = "Sampson et al. 2014 - 20 mg/kg, PMA-based interval, steady state")
+```

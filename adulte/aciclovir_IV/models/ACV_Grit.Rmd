@@ -1,0 +1,102 @@
+---
+title: "Aciclovir - Grit et al. 2022"
+output: html_document
+---
+
+# Shedding a Light on Acyclovir Pharmacodynamics: A Retrospective Analysis on Pharmacokinetic/Pharmacodynamic Modelling of Acyclovir for the Treatment of Varicella Zoster Virus Infection in Immunocompromised Patients: A Pilot Study (Grit GF, Martson AG, Knoester M, Toren-Wielema ML, Touw DJ, Pharmaceutics 2022)
+
+Reference: doi:10.3390/pharmaceutics14112311 (Pharmaceutics 2022;14(11):2311; Table 2).
+
+**Model type: nonparametric population pharmacokinetic model** (NPAG, Pmetrics 1.9.7). Suitable for simulation and MAP Bayesian estimation, with caution: the nonparametric joint distribution is approximated by independent log-normal distributions (means and SDs of Table 2), the residual error is assumed, and the population includes children (see Notes).
+
+## Notes
+
+- Study: retrospective TDM study (University Medical Center Groningen, 2018-2021), 43 patients treated with oral valaciclovir and/or IV aciclovir for HSV or VZV infection, 96 serum aciclovir concentrations (LC-MS/MS; levels < 0.1 mg/L and levels with unclear administration times excluded); patients on dialysis excluded. The characteristics of the 43 patients are only given in the supplement (Table S1, not available); the four patients of the PK/PD analysis were aged 2 to 69 years with eGFR 26 to 143 mL/min/1.73 m2 (Table 1). The population is mainly adult but not exclusively.
+- The article models IV aciclovir and oral valaciclovir simultaneously. This file is the IV aciclovir version (infusion into the central compartment). The oral version is `adulte/valaciclovir_VO/models/VACV_Grit.Rmd`, with identical disposition parameters (Ke, V).
+- Dose: `amt` in mg of aciclovir. **Ambiguity:** the infusion duration is not reported. **Choice:** 1-h infusion (`rate = amt / 1`) in the simulation.
+- Structure: one-compartment model with first-order elimination, parameterized with the elimination rate constant (dX2/dt = -Ke x X2 for the IV route, equations 1-2 of the article). No covariate (a two-compartment model and covariates did not improve the fit). CL = Ke x V is captured.
+- Typical values: means of the nonparametric distribution (Table 2): Ke 0.274 h-1, V 44.3 L (medians 0.235 h-1 and 52.2 L). The typical CL is 12.1 L/h (half-life 2.5 h).
+- IIV: CV = SD/mean of Table 2 (Ke 0.191/0.274 = 69.7%, V 16.351/44.298 = 36.9%), converted with omega^2 = ln(1 + CV^2): Ke 0.3966, V 0.1275 (log-normal distributions with the same arithmetic CV). The OMEGA matrix is diagonal (correlations not reported). Shrinkage was high (43% for Ke, 47.6% for V).
+- **Ambiguity:** the Pmetrics error model (assay error polynomial and gamma/lambda) is not reported. **Choice:** 20% proportional error (variance 0.04), no additive component.
+- Simulation check: 350 and 700 mg every 8 h (5 and 10 mg/kg for 70 kg, 1-h infusion) give in the typical patient Cmax 7.8 and 15.6 mg/L, Cmin 1.1 and 2.3 mg/L and AUC24 87 and 173 mg.h/L. The article does not report simulated exposures; the four PK/PD patients had mean AUC24 of 29-215 mg.h/L.
+- The PK/PD part of the article (Emax model of the drug-induced decline of the VZV plasma viral load, EC50 10.5 mg/L) is not coded.
+
+```{r setup, message = FALSE}
+library(mrgsolve)
+library(mapbayr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r model}
+code <- '
+[PROB]
+Grit et al. 2022 - intravenous aciclovir in a TDM population (43 patients, mainly adults, 96 serum samples after
+IV aciclovir and oral valaciclovir, Pmetrics NPAG). One-compartment model, IV infusion into the central compartment,
+first-order elimination (Ke). No covariate. IIV on Ke and V (log-normal approximation). Proportional residual error (assumed).
+
+[SET] end = 24, delta = 0.1
+
+[PARAM] @annotated
+TVKE : 0.274  : Elimination rate constant, mean (1/h)
+TVV  : 44.298 : Volume of distribution, mean (L)
+ETA1 : 0      : IIV KE
+ETA2 : 0      : IIV V
+
+[CMT] @annotated
+CENT : Central compartment, aciclovir (mg) [ADM, OBS]
+
+[MAIN]
+double KE = TVKE * exp(ETA1 + ETA(1));
+double V  = TVV * exp(ETA2 + ETA(2));
+double CL = KE * V;
+
+[ODE]
+dxdt_CENT = -KE * CENT;
+
+[OMEGA] @annotated
+EKE : 0.3966 : IIV KE (variance, CV 69.7%)
+EV  : 0.1275 : IIV V (variance, CV 36.9%)
+
+[SIGMA] @annotated
+PROP : 0.04 : Proportional error (variance, CV 20%, assumed) (ambiguous, see Notes)
+ADD  : 0    : Additive error (mg/L), not estimated
+
+[TABLE]
+double IPRED = CENT / V;
+double DV = IPRED * (1 + EPS(1)) + EPS(2);
+int i = 0;
+while (DV < 0 && i < 100) { simeps(); DV = IPRED * (1 + EPS(1)) + EPS(2); ++i; }
+
+[CAPTURE] @annotated
+DV : Aciclovir serum concentration (mg/L)
+KE : Individual elimination rate constant (1/h)
+V  : Individual volume of distribution (L)
+CL : Individual clearance (L/h)
+'
+mod <- mcode("ACV_Grit", code)
+```
+
+```{r simulation}
+# Typical patient receiving 5 or 10 mg/kg (70 kg: 350 or 700 mg) every 8 h as a 1-h infusion, steady state
+data <- data.frame(ID = 1:2, time = 0, evid = 1, cmt = 1, amt = c(350, 700), ii = 8, addl = 11)
+data$rate <- data$amt / 1
+
+out <- mod %>%
+  zero_re() %>%
+  data_set(data) %>%
+  mrgsim(end = 96, delta = 0.05) %>%
+  as.data.frame() %>%
+  filter(time >= 88) %>%
+  mutate(time = time - 88, Regimen = factor(ID, labels = c("350 mg q8h", "700 mg q8h")))
+
+out %>% group_by(Regimen) %>%
+  summarise(CL = CL[1], Cmax = max(DV), Cmin = min(DV[time > 0]),
+            AUC24 = 3 * sum(diff(time) * (head(DV, -1) + tail(DV, -1)) / 2))
+
+ggplot(out, aes(time, DV, colour = Regimen)) +
+  geom_line() +
+  theme_bw() +
+  labs(x = "Time after dose (h)", y = "Aciclovir concentration (mg/L)", colour = NULL,
+       title = "Grit et al. 2022 - IV aciclovir every 8 h, typical steady-state profiles")
+```

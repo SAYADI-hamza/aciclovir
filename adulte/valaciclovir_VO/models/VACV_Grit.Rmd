@@ -1,0 +1,116 @@
+---
+title: "Valaciclovir - Grit et al. 2022"
+output: html_document
+---
+
+# Shedding a Light on Acyclovir Pharmacodynamics: A Retrospective Analysis on Pharmacokinetic/Pharmacodynamic Modelling of Acyclovir for the Treatment of Varicella Zoster Virus Infection in Immunocompromised Patients: A Pilot Study (Grit GF, Martson AG, Knoester M, Toren-Wielema ML, Touw DJ, Pharmaceutics 2022)
+
+Reference: doi:10.3390/pharmaceutics14112311 (Pharmaceutics 2022;14(11):2311; Table 2).
+
+**Model type: nonparametric population pharmacokinetic model** (NPAG, Pmetrics 1.9.7). Suitable for simulation and MAP Bayesian estimation, with caution: the nonparametric joint distribution is approximated by independent log-normal distributions (means and SDs of Table 2), the residual error is assumed, the dose unit of the bioavailability is not stated and the population includes children (see Notes).
+
+## Notes
+
+- Study: retrospective TDM study (University Medical Center Groningen, 2018-2021), 43 patients treated with oral valaciclovir and/or IV aciclovir for HSV or VZV infection, 96 serum aciclovir concentrations (LC-MS/MS; levels < 0.1 mg/L and levels with unclear administration times excluded); patients on dialysis excluded. The characteristics of the 43 patients are only given in the supplement (Table S1, not available); the four patients of the PK/PD analysis were aged 2 to 69 years with eGFR 26 to 143 mL/min/1.73 m2 (Table 1). The population is mainly adult but not exclusively.
+- The article models IV aciclovir and oral valaciclovir simultaneously. This file is the oral valaciclovir version (gut compartment X1, first-order absorption, bioavailability FA; equations 1-2 of the article). The IV version is `adulte/aciclovir_IV/models/ACV_Grit.Rmd`, with identical disposition parameters (Ke, V).
+- Dose: `amt` in mg of valaciclovir (tablet strength). **Ambiguity:** the article does not state whether valaciclovir doses were converted to aciclovir equivalents; FA is defined as the "bioavailability of valacyclovir". **Choice:** doses in mg of valaciclovir without conversion (MWR = 1), FA being the fraction of the valaciclovir dose (mg) reaching the circulation as aciclovir. If the doses were entered as aciclovir equivalents, set MWR = 0.694 (225.2/324.3).
+- Structure: one-compartment model, first-order absorption (no lag time), first-order elimination parameterized with Ke. No covariate. CL = Ke x V is captured.
+- Typical values: means of the nonparametric distribution (Table 2): Ke 0.274 h-1, V 44.3 L, ka 0.601 h-1, FA 0.443 (medians 0.235 h-1, 52.2 L, 0.557 h-1 and 0.438).
+- IIV: CV = SD/mean of Table 2 (Ke 69.7%, V 36.9%, ka 64.1%, FA 51.0%), converted with omega^2 = ln(1 + CV^2): Ke 0.3966, V 0.1275, ka 0.3439, FA 0.2313. The OMEGA matrix is diagonal (correlations not reported). Shrinkage was high (43-59%). Individual FA is truncated at 1.
+- **Ambiguity:** the Pmetrics error model (assay error polynomial and gamma/lambda) is not reported. **Choice:** 20% proportional error (variance 0.04), no additive component.
+- Simulation check (typical patient, steady state): 500 mg twice daily gives Cmax 2.8 mg/L, Cmin 0.35 mg/L and AUC24 37 mg.h/L; 1000 mg three times daily gives Cmax 6.4 mg/L, Cmin 2.2 mg/L and AUC24 109 mg.h/L (about twice the mean daily AUC of 57 mg.h/L reported in herpes zoster patients with this regimen and cited by Tod et al. 2001; with MWR = 0.694 it would be 76 mg.h/L). The article does not report simulated exposures; the four PK/PD patients had mean AUC24 of 29-215 mg.h/L.
+
+```{r setup, message = FALSE}
+library(mrgsolve)
+library(mapbayr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r model}
+code <- '
+[PROB]
+Grit et al. 2022 - aciclovir after oral valaciclovir in a TDM population (43 patients, mainly adults, 96 serum samples after
+IV aciclovir and oral valaciclovir, Pmetrics NPAG). One-compartment model, first-order absorption, bioavailability FA,
+first-order elimination (Ke). No covariate. IIV on Ke, V, ka and FA (log-normal approximation). Proportional residual error (assumed).
+
+[SET] end = 24, delta = 0.1
+
+[PARAM] @annotated
+TVKE : 0.274  : Elimination rate constant, mean (1/h)
+TVV  : 44.298 : Volume of distribution, mean (L)
+TVKA : 0.601  : Absorption rate constant, mean (1/h)
+TVF  : 0.443  : Bioavailability of valaciclovir (FA), mean
+MWR  : 1      : Dose conversion factor, valaciclovir mg to model dose unit (ambiguous, see Notes)
+ETA1 : 0      : IIV KE
+ETA2 : 0      : IIV V
+ETA3 : 0      : IIV KA
+ETA4 : 0      : IIV F
+
+[CMT] @annotated
+DEPOT : Gut compartment, valaciclovir dose (mg) [ADM]
+CENT  : Central compartment, aciclovir (mg) [OBS]
+
+[MAIN]
+double KE = TVKE * exp(ETA1 + ETA(1));
+double V  = TVV * exp(ETA2 + ETA(2));
+double KA = TVKA * exp(ETA3 + ETA(3));
+double F  = TVF * exp(ETA4 + ETA(4));
+if (F > 1) F = 1;
+double CL = KE * V;
+F_DEPOT = F * MWR;
+
+[ODE]
+dxdt_DEPOT = -KA * DEPOT;
+dxdt_CENT  =  KA * DEPOT - KE * CENT;
+
+[OMEGA] @annotated
+EKE : 0.3966 : IIV KE (variance, CV 69.7%)
+EV  : 0.1275 : IIV V (variance, CV 36.9%)
+EKA : 0.3439 : IIV KA (variance, CV 64.1%)
+EF  : 0.2313 : IIV F (variance, CV 51.0%)
+
+[SIGMA] @annotated
+PROP : 0.04 : Proportional error (variance, CV 20%, assumed) (ambiguous, see Notes)
+ADD  : 0    : Additive error (mg/L), not estimated
+
+[TABLE]
+double IPRED = CENT / V;
+double DV = IPRED * (1 + EPS(1)) + EPS(2);
+int i = 0;
+while (DV < 0 && i < 100) { simeps(); DV = IPRED * (1 + EPS(1)) + EPS(2); ++i; }
+
+[CAPTURE] @annotated
+DV : Aciclovir serum concentration (mg/L)
+KE : Individual elimination rate constant (1/h)
+V  : Individual volume of distribution (L)
+CL : Individual clearance (L/h)
+KA : Individual absorption rate constant (1/h)
+F  : Individual bioavailability
+'
+mod <- mcode("VACV_Grit", code)
+```
+
+```{r simulation}
+# Typical patient receiving valaciclovir 500 mg twice daily (HSV) or 1000 mg three times daily (VZV), steady state
+data <- data.frame(ID = 1:2, time = 0, evid = 1, cmt = 1, amt = c(500, 1000), ii = c(12, 8), addl = c(7, 11))
+
+out <- mod %>%
+  zero_re() %>%
+  data_set(data) %>%
+  mrgsim(end = 96, delta = 0.05) %>%
+  as.data.frame() %>%
+  left_join(data %>% select(ID, ii), by = "ID") %>%
+  filter(time >= 96 - ii) %>%
+  mutate(time = time - (96 - ii), Regimen = factor(ID, labels = c("500 mg q12h", "1000 mg q8h")))
+
+out %>% group_by(Regimen) %>%
+  summarise(CL = CL[1], Cmax = max(DV), Cmin = min(DV[time > 0]),
+            AUC24 = 24 / ii[1] * sum(diff(time) * (head(DV, -1) + tail(DV, -1)) / 2))
+
+ggplot(out, aes(time, DV, colour = Regimen)) +
+  geom_line() +
+  theme_bw() +
+  labs(x = "Time after dose (h)", y = "Aciclovir concentration (mg/L)", colour = NULL,
+       title = "Grit et al. 2022 - oral valaciclovir, typical steady-state profiles")
+```

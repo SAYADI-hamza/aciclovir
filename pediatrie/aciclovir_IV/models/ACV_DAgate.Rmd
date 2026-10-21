@@ -1,0 +1,128 @@
+---
+title: "Aciclovir - D'Agate et al. 2024"
+output: html_document
+---
+
+# Population pharmacokinetics and dose rationale for aciclovir in term and pre-term neonates with herpes (D'Agate S, Ruiz Gabarre D, Della Pasqua O, Pharmacol Res Perspect 2024)
+
+Reference: doi:10.1002/prp2.1193 (Pharmacol Res Perspect 2024;12:e1193; Table 2).
+
+**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, NONMEM). Suitable for simulation and MAP Bayesian estimation. Caution: the default height is assumed (not reported, see Notes).
+
+## Notes
+
+- Study: reanalysis of the two Pediatric Trials Network studies of Sampson et al. 2014 (`ACV_Sampson.Rmd`): 28 preterm and term infants, 83 plasma samples after 1-h intravenous infusions. Median (range) GA 30 (23-40) weeks, PMA 31 (25-41) weeks, PNA 3 (1-30) days, weight 1420 (373-5720) g, SCR 0.9 (0.3-1.8) mg/dL (Table 1, 32 infants). Study 1 enrolled infants with suspected systemic infection (500 mg/m2 every 8 h), study 2 infants with suspected HSV infection (10-20 mg/kg every 8-12 h). Intravenous only.
+- Dose: `amt` in mg of aciclovir, 1-h infusion (`rate = amt / 1`).
+- Structure: one-compartment model, zero-order infusion, first-order elimination.
+- Clearance (Table 2): CL (L/h) = 0.748 x (WT/1.37)^0.75 x PMA/(50 + PMA) + CLCR. The maturation term is a hyperbolic (Hill coefficient 1) function of PMA with PMA50 fixed to 50 weeks (literature value). CLCR is added as a separate renal clearance (L/h); the first term is the residual (tubular secretion and metabolism) clearance.
+- CLCR is computed in the model as in the Methods: Schwartz CLCR (mL/min/1.73 m2) = k x HT (cm) / SCR, with k = 0.33 if GA < 36 weeks and 0.45 otherwise, then converted to L/h with the individual body surface area of Gehan and George, BSA (m2) = 0.0235 x HT^0.42246 x WT^0.51456: CLCR (L/h) = CLCR (mL/min/1.73 m2) x BSA / 1.73 x 0.06. SCR is entered in umol/L and divided by 88.4.
+- **Ambiguity:** the Methods give SCR "in mg/L" in the Schwartz formula; with the k values 0.33/0.45 this would give CLCR about 10 times too low. **Choice:** SCR in mg/dL (standard Schwartz formula); this gives the median CLCR reported by the authors (15.8 mL/min/1.73 m2) for the median SCR of 0.9 mg/dL.
+- Volume (Table 2): V (L) = 1.93 x (WT/1.37) x 2.67^DIS, with DIS = 1 for systemic infection. The authors used the study as a proxy for disease status (study 1, suspected systemic infection, DIS = 1; study 2, DIS = 0).
+- **Ambiguity:** the Methods describe study 1 as "suspected systemic infection" and study 2 as "suspected HSV infection", while the text states that higher concentrations were observed in study 1, which would rather suggest a smaller volume in study 1. **Choice:** DIS = 1 for suspected systemic infection (study 1), as named in the article; default DIS = 0.
+- PMA (weeks) = GA + PNA/7, computed in the model. Default covariates: WT 1.37 kg (reference weight of the model; median 1.42 kg in Table 1), GA 30 weeks, PNA 3 days, SCR 0.9 mg/dL (80 umol/L), DIS 0.
+- **Ambiguity:** the height (length) of the infants is not reported. **Choice:** HT = 39 cm (assumed length of a 1.4 kg preterm infant); with SCR 0.9 mg/dL and GA < 36 weeks this gives CLCR 14.3 mL/min/1.73 m2 (0.064 L/h), close to the median CLCR of 15.8 mL/min/1.73 m2 reported by the authors.
+- IIV (Table 2, variances, used directly): CL 0.451 (CV 75.5%), V 0.646 (CV 95.3%), covariance 0.442 (correlation 0.82), block.
+- Residual error: proportional, variance 0.143 (CV 37.8%).
+- Simulation check: typical CL of the default infant 0.35 L/h (0.26 L/h/kg, of which CLCR is about 18%), consistent with Sampson et al. (0.305 L/h/kg at PMA 31.3 weeks). For the median term neonate of Table 3 (3.3 kg, 49 cm, SCR 0.49 mg/dL, CLCR 45 mL/min/1.73 m2) receiving 20 mg/kg every 8 h, the typical AUC0-24 is 197 mg.h/L and Cmax 15.5 mg/L (article, simulated medians with IIV: 185 mg.h/L and 12.7 mg/L).
+
+```{r setup, message = FALSE}
+library(mrgsolve)
+library(mapbayr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r model}
+code <- '
+[PROB]
+DAgate et al. 2024 - intravenous aciclovir in preterm and term neonates (reanalysis of Sampson et al. 2014,
+28 infants, 83 samples, NONMEM). One-compartment model, first-order elimination.
+CL = residual clearance (allometric weight, hyperbolic PMA maturation, PMA50 fixed) + Schwartz CLCR (L/h, BSA Gehan-George).
+V: weight (linear) and suspected systemic infection (DIS). Correlated IIV on CL and V. Proportional residual error.
+
+[SET] end = 24, delta = 0.1
+
+[PARAM] @annotated
+TVCLRES : 0.748 : Residual clearance for 1.37 kg, maturation term excluded (L/h)
+PMA50   : 50    : PMA at half-maturation of residual clearance, fixed (weeks)
+TVV     : 1.93  : Volume of distribution for 1.37 kg (L)
+TH_DIS  : 2.67  : Multiplicative effect of suspected systemic infection on V
+WT_REF  : 1.37  : Reference weight (kg)
+ETA1    : 0     : IIV CL
+ETA2    : 0     : IIV V
+
+[PARAM] @annotated @covariates
+WT  : 1.37 : Body weight (kg)
+HT  : 39   : Height (length) (cm) (ambiguous, see Notes)
+SCR : 80   : Serum creatinine (umol/L)
+GA  : 30   : Gestational age (weeks)
+PNA : 3    : Postnatal age (days)
+DIS : 0    : Suspected systemic infection (1 = yes, 0 = no) (ambiguous, see Notes)
+
+[CMT] @annotated
+CENT : Central compartment, aciclovir (mg) [ADM, OBS]
+
+[MAIN]
+double PMA = GA + PNA / 7;
+double KSCH = (GA < 36) ? 0.33 : 0.45;
+double CLCR_N = KSCH * HT / (SCR / 88.4);
+double BSA = 0.0235 * pow(HT, 0.42246) * pow(WT, 0.51456);
+double CLCR = CLCR_N * BSA / 1.73 * 0.06;
+double CL = (TVCLRES * pow(WT / WT_REF, 0.75) * PMA / (PMA50 + PMA) + CLCR) * exp(ETA1 + ETA(1));
+double V  = TVV * (WT / WT_REF) * pow(TH_DIS, DIS) * exp(ETA2 + ETA(2));
+
+[ODE]
+dxdt_CENT = -CL / V * CENT;
+
+[OMEGA] @annotated @block
+ECL : 0.451       : IIV CL (variance, CV 75.5%)
+EV  : 0.442 0.646 : IIV V (variance, CV 95.3%), covariance CL-V
+
+[SIGMA] @annotated
+PROP : 0.143 : Proportional error (variance, CV 37.8%)
+ADD  : 0     : Additive error (mg/L), not estimated
+
+[TABLE]
+double IPRED = CENT / V;
+double DV = IPRED * (1 + EPS(1)) + EPS(2);
+int i = 0;
+while (DV < 0 && i < 100) { simeps(); DV = IPRED * (1 + EPS(1)) + EPS(2); ++i; }
+
+[CAPTURE] @annotated
+DV     : Aciclovir plasma concentration (mg/L)
+PMA    : Postmenstrual age (weeks)
+CLCR_N : Creatinine clearance, Schwartz (mL/min/1.73 m2)
+CLCR   : Creatinine clearance (L/h)
+CL     : Individual clearance (L/h)
+V      : Individual volume of distribution (L)
+'
+mod <- mcode("ACV_DAgate", code)
+```
+
+```{r simulation}
+# 20 mg/kg every 8 h (1-h infusion), steady state:
+# preterm (GA 27 weeks, PNA 9 d, 1.2 kg, 38 cm, SCR 0.6 mg/dL) and term neonates (GA 39 weeks, PNA 15 d, 3.3 kg, 49 cm, SCR 0.49 mg/dL),
+# medians of the simulated cohorts of Table 3
+data <- data.frame(ID = 1:2, time = 0, evid = 1, cmt = 1, amt = 20 * c(1.2, 3.3), ii = 8, addl = 11,
+                   WT = c(1.2, 3.3), HT = c(38, 49), SCR = c(0.6, 0.49) * 88.4, GA = c(27, 39), PNA = c(9, 15))
+data$rate <- data$amt / 1
+
+out <- mod %>%
+  zero_re() %>%
+  data_set(data) %>%
+  mrgsim(end = 96, delta = 0.05) %>%
+  as.data.frame() %>%
+  filter(time >= 88) %>%
+  mutate(time = time - 88, Group = factor(ID, labels = c("Preterm neonate", "Term neonate")))
+
+# Article (Table 3, CLCR > 50 mL/min/1.73 m2 group, term neonates): median AUC0-24 185 mg.h/L, Cmax 12.7 mg/L
+out %>% group_by(Group) %>%
+  summarise(PMA = PMA[1], CLCR_N = CLCR_N[1], CL = CL[1], V = V[1], Cmax = max(DV), Cmin = min(DV[time > 0]),
+            AUC24 = 3 * sum(diff(time) * (head(DV, -1) + tail(DV, -1)) / 2))
+
+ggplot(out, aes(time, DV, colour = Group)) +
+  geom_line() +
+  theme_bw() +
+  labs(x = "Time after dose (h)", y = "Aciclovir concentration (mg/L)", colour = NULL,
+       title = "D'Agate et al. 2024 - 20 mg/kg every 8 h, steady state")
+```

@@ -1,0 +1,121 @@
+---
+title: "Aciclovir - Abdalla et al. 2020"
+output: html_document
+---
+
+# Population Pharmacokinetics of Intravenous and Oral Acyclovir and Oral Valacyclovir in Pediatric Population To Optimize Dosing Regimens (Abdalla S, Briand C, Oualha M, Bendavid M, Beranger A, Benaboud S, Treluyer JM, Zheng Y, Capito C, Demir Z, Foissac F, Winter S, Gana I, Boujaafar S, Bouazza N, Hirt D, Antimicrob Agents Chemother 2020)
+
+Reference: doi:10.1128/AAC.01426-20 (Antimicrob Agents Chemother 2020;64(12):e01426-20; Table 2).
+
+**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, SAEM, Monolix 2018R1). Suitable for simulation and MAP Bayesian estimation.
+
+## Notes
+
+- Study: prospective study (Optimome, Necker-Enfants Malades, Paris), 79 children (212 plasma concentrations, LC-MS/MS, LOQ 0.05 mg/L): 50 IV aciclovir, 22 oral (7 aciclovir, 22 valaciclovir tablets, often crushed), 7 both; 57 preventive and 22 curative treatments (immuno-haematology, PICU, surgery). Median (range) age 4.1 (0.02-18) years, weight 15 (3.1-66) kg, height 108 (49-169) cm, plasma creatinine 29 (10-172) umol/L, Schwartz eGFR 164 (56-399) mL/min/1.73 m2; 48 boys, 31 girls (Table 1). Patients on haemofiltration or ECMO were excluded.
+- The article models IV aciclovir, oral aciclovir and oral valaciclovir simultaneously. This file is the IV aciclovir version (infusion into the central compartment, F = 1). The oral versions are `pediatrie/aciclovir_VO/models/ACV_Abdalla.Rmd` and `pediatrie/valaciclovir_VO/models/VACV_Abdalla.Rmd`, with identical disposition parameters, covariates and IIV.
+- Dose: `amt` in mg of aciclovir. **Ambiguity:** the infusion duration is not reported for the study (the Introduction refers to the usual 1-h infusion). **Choice:** 1-h infusion (`rate = amt / 1`) in the simulation.
+- Structure: one-compartment model, first-order elimination (analytical solution, doses and concentrations converted to molar units for the joint fit).
+- Covariates (Table 2 footnote): CL = 5.15 x (WT/15)^0.75 x (eGFR/164)^0.658; V = 16.2 x (WT/15) (allometric exponents fixed). The Methods give a median weight of 15.6 kg as the reference, whereas Table 1 and the final equations use 15 kg; 15 kg is used.
+- eGFR is the Schwartz formula of the Methods, computed in the model: eGFR (mL/min/1.73 m2) = k x HT (cm) / SCR (mg/dL), with k = 0.45 if age < 2 years, 0.55 if 2-13 years or female >= 13 years, 0.7 if male >= 13 years; SCR is entered in umol/L and divided by 88.4. eGFR is captured.
+- Default covariates: medians of Table 1: AGE 4.1 years, WT 15 kg, HT 108 cm, SCR 29 umol/L, SEX 1 (48 boys/31 girls). They give an eGFR of 181 mL/min/1.73 m2 (median of the study 164, the reference value of the model).
+- IIV: Monolix SDs (Table 2): CL 0.389, V 0.434, squared: 0.1513 and 0.1884. No IIV on ka and F (fixed to 0).
+- Residual error: proportional, Monolix b = 0.48 (SD), variance 0.2304.
+- Targets used by the authors: trough > 0.56 mg/L (HSV) or > 1.125 mg/L (VZV) and peak < 25 mg/L; augmented renal clearance defined as eGFR >= 250 mL/min/1.73 m2. Proposed initial IV doses: 10 mg/kg every 6 h (eGFR < 250), 15-20 mg/kg every 6 h (eGFR >= 250).
+- Simulation check (typical 15 kg child, 1-h infusion, steady state): 10 mg/kg every 6 h with eGFR 164 gives Cmax 9.3 and Cmin 1.9 mg/L; 20 mg/kg every 6 h with eGFR 300 gives Cmax 15.7 and Cmin 1.5 mg/L, i.e. within the targets as reported for these proposed regimens (Fig. 5). The typical CL (0.34 L/h/kg) and V (1.08 L/kg) agree with the values discussed by the authors (0.35 L/h/kg and 1.2 L/kg).
+
+```{r setup, message = FALSE}
+library(mrgsolve)
+library(mapbayr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r model}
+code <- '
+[PROB]
+Abdalla et al. 2020 - intravenous aciclovir in children (79 children, 212 samples after IV aciclovir,
+oral aciclovir and oral valaciclovir, Monolix 2018R1 SAEM). One-compartment model, IV infusion into the central compartment.
+Covariates: weight (allometry) and Schwartz eGFR (computed from AGE, SEX, HT, SCR, power) on CL, weight on V.
+IIV on CL and V. Proportional residual error.
+
+[SET] end = 24, delta = 0.1
+
+[PARAM] @annotated
+TVCL     : 5.15  : Clearance for 15 kg and eGFR 164 mL/min/1.73 m2 (L/h)
+TH_GFR   : 0.658 : Exponent of eGFR on CL
+EGFR_REF : 164   : Reference eGFR, median (mL/min/1.73 m2)
+WT_REF   : 15    : Reference weight (kg)
+TVV      : 16.2  : Volume of distribution for 15 kg (L)
+ETA1     : 0     : IIV CL
+ETA2     : 0     : IIV V
+
+[PARAM] @annotated @covariates
+AGE : 4.1 : Age (years)
+WT  : 15  : Body weight (kg)
+HT  : 108 : Height (cm)
+SCR : 29  : Serum creatinine (umol/L)
+SEX : 1   : Sex (1 = male, 0 = female)
+
+[CMT] @annotated
+CENT : Central compartment, aciclovir (mg) [ADM, OBS]
+
+[MAIN]
+double KSCH = 0.55;
+if (AGE < 2) KSCH = 0.45;
+if (AGE >= 13 && SEX == 1) KSCH = 0.7;
+double EGFR = KSCH * HT / (SCR / 88.4);
+double CL = TVCL * pow(WT / WT_REF, 0.75) * pow(EGFR / EGFR_REF, TH_GFR) * exp(ETA1 + ETA(1));
+double V  = TVV * (WT / WT_REF) * exp(ETA2 + ETA(2));
+
+[ODE]
+dxdt_CENT = -CL / V * CENT;
+
+[OMEGA] @annotated
+ECL : 0.1513 : IIV CL (variance, SD 0.389)
+EV  : 0.1884 : IIV V (variance, SD 0.434)
+
+[SIGMA] @annotated
+PROP : 0.2304 : Proportional error (variance, b = 0.48)
+ADD  : 0      : Additive error (mg/L), not estimated
+
+[TABLE]
+double IPRED = CENT / V;
+double DV = IPRED * (1 + EPS(1)) + EPS(2);
+int i = 0;
+while (DV < 0 && i < 100) { simeps(); DV = IPRED * (1 + EPS(1)) + EPS(2); ++i; }
+
+[CAPTURE] @annotated
+DV   : Aciclovir plasma concentration (mg/L)
+EGFR : Estimated GFR, Schwartz (mL/min/1.73 m2)
+CL   : Individual clearance (L/h)
+V    : Individual volume of distribution (L)
+'
+mod <- mcode("ACV_Abdalla", code)
+```
+
+```{r simulation}
+# Typical 15 kg child (4.1 years, 108 cm), eGFR 164 (SCR 32 umol/L) and 300 mL/min/1.73 m2 (SCR 17.5 umol/L),
+# proposed initial doses (Table 3): 10 mg/kg every 6 h (normal eGFR), 20 mg/kg every 6 h (augmented renal clearance), 1-h infusion
+data <- data.frame(ID = 1:2, time = 0, evid = 1, cmt = 1, amt = c(10, 20) * 15, ii = 6, addl = 15, SCR = c(32, 17.5))
+data$rate <- data$amt / 1
+
+out <- mod %>%
+  zero_re() %>%
+  data_set(data) %>%
+  mrgsim(end = 96, delta = 0.05) %>%
+  as.data.frame() %>%
+  filter(time >= 90) %>%
+  mutate(time = time - 90, Regimen = factor(ID, labels = c("10 mg/kg q6h, eGFR 164", "20 mg/kg q6h, eGFR 300")))
+
+# Article targets: trough > 0.56 / 1.125 mg/L, peak < 25 mg/L (Fig. 5)
+out %>% group_by(Regimen) %>%
+  summarise(EGFR = EGFR[1], CL = CL[1], V = V[1], Cmax = max(DV), Cmin = min(DV[time > 0]),
+            AUCtau = sum(diff(time) * (head(DV, -1) + tail(DV, -1)) / 2))
+
+ggplot(out, aes(time, DV, colour = Regimen)) +
+  geom_line() +
+  geom_hline(yintercept = c(0.56, 1.125), linetype = 2) +
+  theme_bw() +
+  labs(x = "Time after dose (h)", y = "Aciclovir concentration (mg/L)", colour = NULL,
+       title = "Abdalla et al. 2020 - IV aciclovir, typical steady-state profiles")
+```
