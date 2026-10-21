@@ -1,0 +1,228 @@
+---
+title: "Aciclovir - Sun et al. 2025"
+output: html_document
+---
+
+# Revisiting Acyclovir Dosing for Adult Viral Encephalitis Using a Full Bayesian LeiCNS PBPK Modeling Approach (Sun M, Manson ML, Martson AG, Bodilsen J, de Lange ECM, Guo T, Clin Pharmacokinet 2025)
+
+Reference: doi:10.1007/s40262-025-01545-w (Clin Pharmacokinet 2025;64:1413-1423; Supplementary Tables S1-S3). Model framework: LeiCNS-PK3.0, Saleh MAA et al., J Pharmacokinet Pharmacodyn 2021;48:725-741, doi:10.1007/s10928-021-09768-7 (Supplementary equations and Supplementary Fig. 1).
+
+**Model type: illustrative model only, not a population pharmacokinetic model** (CNS physiologically based pharmacokinetic model, LeiCNS-PK3.0, fitted to aggregate literature data with a full Bayesian approach in Stan/Torsten; no interindividual variability estimated). Kept for illustration of plasma, brain extracellular fluid and lumbar CSF exposure; not intended for MAP Bayesian estimation. Caution: the model code was not published and several equations of the framework are reconstructed with assumptions (see Notes).
+
+## Notes
+
+- Study: Bayesian CNS PBPK analysis of aggregate (mean) aciclovir concentrations in plasma and lumbar CSF digitized from two studies after oral valaciclovir: Smith et al. 2010 (subjects with normal renal function only) and Lycke et al. 2003 (patients with multiple sclerosis). Eight sensitive parameters were estimated (Table S3, posterior means used here); the other parameters were fixed (Table S1). The fitted absorption of valaciclovir (ka 0.0074 min-1, F 54.5%) was removed by the authors for the simulations of IV aciclovir; this file is the IV version (1-h infusion into plasma, `rate = amt / 1`).
+- Structure (Supplementary Fig. 1 of Saleh 2021): one-compartment empirical plasma model (CLe, Vcen) connected by the cerebral blood flow (QCBF) to the brain microvasculature (MV); MV exchanges with brain ECF across the BBB and with the lateral ventricles (LV) and third and fourth ventricles (TFV) across the BCSFB, by paracellular (Qp) and transcellular (Qt x asymmetry factor) transport. Brain ECF exchanges with the brain cell membrane (non-specific binding, CLwo/CLow) and the brain cells (ICF), which contain the lysosomes (QLYSO). Bulk flows: ECF bulk flow (QECF) from ECF to LV; CSF flow (QCSF) LV -> TFV -> cisterna magna (CM) -> subarachnoid space (SAS) -> plasma. Peripheral plasma compartments of the framework are not used (one-compartment plasma model).
+- Parameters (posterior means, Table S3, converted from mL and min to L and h): CLe 567 mL/min (34.0 L/h), Vcen 62.5 L, VSAS 278 mL, SABBB 152,997 cm2, BBB width 5.15 x 10^-5 cm, QCSF 1.096 mL/min. Fixed (Table S1): VECF 253 mL, VICF 1000 mL, VLYS 12.5 mL, VMV 47 mL, VLV 20 mL, VTFV 3 mL, VCM 1 mL, QCBF 689 mL/min, QECF 0.2 mL/min, SABCSFB 15,000 cm2, BCSFB width 0.5 um, SABCM 2,666,520 cm2, SALYS 1,980,260 cm2, effective surface areas 99.8% (transcellular), 0.004% (BBB paracellular) and 0.016% (BCSFB paracellular), pH 7.4 (plasma), 7.3 (ECF, CSF), 7.0 (ICF), 5.0 (lysosomes); drug: MW 225.2, logP -0.95, pKa 11.98, pKb 3.02, Kpuu,ECF 0.32, Kpuu,CSF 0.23.
+- Transport clearances (Saleh 2021, supplementary equations): log10 Daq = -4.113 - 0.4609 x log10 MW (cm2/s), Qp = Daq / width x SAp; log10 P0 = 0.939 x logP - 6.21 (cm/s), Qt = 0.5 x P0 x SAt. pH factors (neutral fractions) from the adapted Henderson-Hasselbalch equations; for aciclovir they are > 0.99 in all compartments (practically fully neutral).
+- Asymmetry factors: with Kpuu < 1, AF in = 1 and the efflux AF at the BBB, BCSFB-LV and BCSFB-TFV are computed in the model from the steady-state mass balance of this model so that Kpuu,ECF = 0.32 and Kpuu,LV = Kpuu,CM = 0.23. **Ambiguity:** Saleh 2021 gives closed-form AF equations, but Sun et al. give a single Kpuu,CSF. **Choice:** Kpuu,CSF used for both LV and CM (AF computed for the same steady state as the published equations).
+- **Ambiguity:** the BBB pore size (PZBBB, estimated by Sun et al., posterior 0.00145 um) enters a paracellular restriction function that is not published. **Choice:** unrestricted paracellular diffusion (Qp = Daq / width x SAp); because the AF are recomputed to give the published Kpuu, this mainly affects the speed of CNS equilibration, not the steady-state ratios.
+- **Ambiguity:** the brain cell membrane and lysosome clearances (CLwo, CLow, QLYSO) are not published. **Choice:** CLwo = 0.5 x P0 x SABCM, CLow = CLwo / Poct (so that the membrane-to-water concentration ratio at equilibrium equals the octanol-water partition coefficient, as stated by Saleh 2021), QLYSO = 0.5 x P0 x SALYS; membrane volume 5% of the brain volume (62.5 mL). For hydrophilic aciclovir these compartments have a negligible influence on plasma, ECF and SAS concentrations.
+- **Ambiguity:** plasma protein binding is not mentioned and Kpuu,CSF was derived from total CSF/serum AUC ratios. **Choice:** plasma unbound fraction 1 (aciclovir is 9-33% bound).
+- Variability: the Bayesian analysis estimated parameter uncertainty, not interindividual variability ("we were not able to model the random effect"). For mapbayr compatibility only, the posterior relative SDs of CLe (4.1%) and Vcen (19.6%) are coded as random effects (omega^2 0.00166 and 0.0377); they are not interindividual variabilities and this model must not be used for MAP Bayesian estimation.
+- Residual error (log-normal likelihood, Table S3): SD on the log scale 0.301 for plasma (variance 0.0906) and 0.137 for SAS (variance 0.0188), coded as log-additive errors (proportional components 0). Plasma (cmt 1) and lumbar CSF (cmt 10) are the two observation types, captured as `PAR` and `MET` (names required by mapbayr for two types of DV; MET is not a metabolite here).
+- **Ambiguity:** the body weight of the simulated adult is not reported. **Choice:** 70 kg (700 mg every 8 h for 10 mg/kg TID). With the posterior CLe (34 L/h) and Vcen (62.5 L), the plasma half-life is 1.3 h; the article reports a median plasma Css,max 11.2 mg/L, AUCtau 26.1 mg.h/L and half-life 2.3 h for 10 mg/kg TID, which corresponds to a dose of about 890 mg with these plasma parameters (i.e. about 89 kg), and SAS Css,max 1.0 mg/L, Css,min 0.5 mg/L, AUCtau 5.9 mg.h/L and half-life 4.5 h (Fig. 3).
+- Simulation check (700 mg every 8 h, 1-h infusion, steady state): plasma Cmax 8.7, Cmin 0.20 mg/L, AUCtau 20.6 mg.h/L; brain ECF Cmax 2.7, Cmin 0.08 mg/L, AUCtau 6.6 mg.h/L; lumbar CSF Cmax 0.78, Cmin 0.36 mg/L, AUCtau 4.7 mg.h/L. The CNS-to-plasma AUC ratios (ECF 0.32, SAS 0.23) equal the Kpuu values, and scaled to the dose of about 890 mg implied by the published plasma AUC, the SAS profile (Cmax 0.99, Cmin 0.46 mg/L, AUCtau 6.0 mg.h/L) agrees with Fig. 3 (1.0, 0.5 mg/L, 5.9 mg.h/L); brain ECF has the lowest trough, as reported.
+- Targets used by the authors: 50% fT > IC50 and Cmin > IC50 (IC50 0.56 mg/L for HSV, 1.125 mg/L for VZV) in plasma, brain ECF and SAS; plasma Cmax < 25 mg/L (toxicity). Proposed regimens: 9-17 mg/kg every 6 h (>= 1-h infusion) for HSV encephalitis, 15-20 mg/kg every 6 h (>= 1.5-h infusion) for VZV encephalitis.
+
+```{r setup, message = FALSE}
+library(mrgsolve)
+library(mapbayr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+```{r model}
+code <- '
+[PROB]
+Sun et al. 2025 - aciclovir CNS PBPK model (LeiCNS-PK3.0, full Bayesian analysis of aggregate plasma and lumbar CSF data
+after oral valaciclovir, Stan/Torsten). IV aciclovir, one-compartment plasma model connected to the CNS model
+(brain microvasculature, ECF, cell membrane, ICF, lysosomes, lateral ventricles, 3rd-4th ventricles, cisterna magna, SAS).
+Posterior means. No interindividual variability (illustrative model). Log-additive residual errors in plasma and SAS.
+
+[SET] end = 24, delta = 0.1
+
+[PARAM] @annotated
+CLE_ML   : 567       : Plasma clearance (mL/min)
+VCEN_ML  : 62481     : Plasma central volume (mL)
+VSAS_ML  : 278       : Subarachnoid space volume (mL)
+SABBB    : 152997    : BBB surface area (cm2)
+WBBB     : 0.0000515 : BBB width (cm)
+QCSF_ML  : 1.096     : CSF flow (mL/min)
+VECF_ML  : 253       : Brain ECF volume (mL)
+VICF_ML  : 1000      : Brain intracellular fluid volume (mL)
+VLYS_ML  : 12.5      : Brain cell lysosome volume (mL)
+VMV_ML   : 47        : Brain microvasculature volume (mL)
+VLV_ML   : 20        : Lateral ventricle volume (mL)
+VTFV_ML  : 3         : Third and fourth ventricle volume (mL)
+VCM_ML   : 1         : Cisterna magna volume (mL)
+VTOT_ML  : 1250      : Total brain volume (mL)
+QCBF_ML  : 689       : Cerebral blood flow (mL/min)
+QECF_ML  : 0.2       : Brain ECF bulk flow (mL/min)
+SABCSFB  : 15000     : BCSFB surface area (cm2)
+WBCSFB   : 0.00005   : BCSFB width (cm)
+SABCM    : 2666520   : Brain cell membrane surface area (cm2)
+SALYS    : 1980260   : Lysosome membrane surface area (cm2)
+FT_T     : 0.998     : Effective surface area fraction, transcellular (BBB and BCSFB)
+FP_BBB   : 0.00004   : Effective surface area fraction, BBB paracellular
+FP_BCSFB : 0.00016   : Effective surface area fraction, BCSFB paracellular
+MW       : 225.2     : Molecular weight (g/mol)
+LOGP     : -0.95     : Octanol-water partition coefficient (log10)
+PKA      : 11.98     : Strongest acidic pKa
+PKB      : 3.02      : Strongest basic pKa
+PH_PL    : 7.4       : pH plasma and brain microvasculature
+PH_ECF   : 7.3       : pH brain ECF
+PH_CSF   : 7.3       : pH CSF
+PH_ICF   : 7.0       : pH brain cells
+PH_LYS   : 5.0       : pH lysosomes
+KPUU_ECF : 0.32      : Brain ECF-to-plasma unbound concentration ratio
+KPUU_CSF : 0.23      : CSF-to-plasma unbound concentration ratio (LV and CM) (ambiguous, see Notes)
+ETA1     : 0         : Uncertainty CLe (not IIV)
+ETA2     : 0         : Uncertainty Vcen (not IIV)
+
+[CMT] @annotated
+CENT : Plasma central compartment, aciclovir (mg) [ADM, OBS]
+MV   : Brain microvasculature (mg)
+ECF  : Brain extracellular fluid (mg)
+MEM  : Brain cell membrane, bound (mg)
+ICF  : Brain intracellular fluid (mg)
+LYS  : Brain cell lysosomes (mg)
+LV   : CSF, lateral ventricles (mg)
+TFV  : CSF, third and fourth ventricles (mg)
+CM   : CSF, cisterna magna (mg)
+SAS  : CSF, subarachnoid space, lumbar (mg) [OBS]
+
+[MAIN]
+// volumes (L) and flows (L/h); mL/min x 0.06 = L/h, mL/s x 3.6 = L/h
+double CLE  = CLE_ML * 0.06 * exp(ETA1 + ETA(1));
+double VCEN = VCEN_ML / 1000 * exp(ETA2 + ETA(2));
+double VSAS = VSAS_ML / 1000;
+double VECF = VECF_ML / 1000;
+double VICF = VICF_ML / 1000;
+double VLYS = VLYS_ML / 1000;
+double VMV = VMV_ML / 1000;
+double VLV = VLV_ML / 1000;
+double VTFV = VTFV_ML / 1000;
+double VCM = VCM_ML / 1000;
+double VMEM = 0.05 * VTOT_ML / 1000;
+double QCBF = QCBF_ML * 0.06;
+double QECF = QECF_ML * 0.06;
+double QCSF = QCSF_ML * 0.06;
+// pH factors (neutral fractions)
+double PHF_MV  = 1 / (1 + pow(10, PH_PL  - PKA)) / (1 + pow(10, PKB - PH_PL));
+double PHF_ECF = 1 / (1 + pow(10, PH_ECF - PKA)) / (1 + pow(10, PKB - PH_ECF));
+double PHF_CSF = 1 / (1 + pow(10, PH_CSF - PKA)) / (1 + pow(10, PKB - PH_CSF));
+double PHF_ICF = 1 / (1 + pow(10, PH_ICF - PKA)) / (1 + pow(10, PKB - PH_ICF));
+double PHF_LYS = 1 / (1 + pow(10, PH_LYS - PKA)) / (1 + pow(10, PKB - PH_LYS));
+// passive transport clearances (L/h)
+double DAQ = pow(10, -4.113 - 0.4609 * log10(MW));
+double P0  = pow(10, 0.939 * LOGP - 6.21);
+double QP_BBB   = DAQ / WBBB * SABBB * FP_BBB * 3.6;
+double QT_BBB   = 0.5 * P0 * SABBB * FT_T * 3.6;
+double QP_BCSFB = DAQ / WBCSFB * SABCSFB * FP_BCSFB * 3.6;
+double QT_BCSFB = 0.5 * P0 * SABCSFB * FT_T * 3.6;
+double CLWO  = 0.5 * P0 * SABCM * 3.6;
+double CLOW  = CLWO / pow(10, LOGP);
+double QLYSO = 0.5 * P0 * SALYS * 3.6;
+// efflux asymmetry factors from the steady-state mass balance (influx AF = 1, Kpuu < 1)
+double KE = KPUU_ECF;
+double KL = KPUU_CSF;
+double KC = KPUU_CSF;
+double CMV_SS = 1 - QCSF * KC / QCBF;
+double AFEF_BBB = ((QP_BBB + QT_BBB * PHF_MV) * CMV_SS - QP_BBB * KE - QECF * KE) / (QT_BBB * PHF_ECF * KE);
+double AFEF_LV  = ((QP_BCSFB + QT_BCSFB * PHF_MV) * CMV_SS - QP_BCSFB * KL - (QCSF * KL - QECF * KE)) / (QT_BCSFB * PHF_CSF * KL);
+double AFEF_TFV = ((QP_BCSFB + QT_BCSFB * PHF_MV) * CMV_SS - QP_BCSFB * KC - QCSF * (KC - KL)) / (QT_BCSFB * PHF_CSF * KC);
+
+[ODE]
+double CPL = CENT / VCEN;
+double CMV = MV / VMV;
+double CECF = ECF / VECF;
+double CMEM = MEM / VMEM;
+double CICF = ICF / VICF;
+double CLYS = LYS / VLYS;
+double CLV = LV / VLV;
+double CTFV = TFV / VTFV;
+double CCM = CM / VCM;
+double CSASc = SAS / VSAS;
+double J_BBB = (QP_BBB + QT_BBB * PHF_MV) * CMV - (QP_BBB + QT_BBB * AFEF_BBB * PHF_ECF) * CECF;
+double J_LV  = (QP_BCSFB + QT_BCSFB * PHF_MV) * CMV - (QP_BCSFB + QT_BCSFB * AFEF_LV * PHF_CSF) * CLV;
+double J_TFV = (QP_BCSFB + QT_BCSFB * PHF_MV) * CMV - (QP_BCSFB + QT_BCSFB * AFEF_TFV * PHF_CSF) * CTFV;
+double J_EM  = CLWO * PHF_ECF * CECF - CLOW * CMEM;
+double J_MI  = CLOW * CMEM - CLWO * PHF_ICF * CICF;
+double J_IL  = QLYSO * (PHF_ICF * CICF - PHF_LYS * CLYS);
+dxdt_CENT = -CLE * CPL - QCBF * (CPL - CMV) + QCSF * CSASc;
+dxdt_MV   =  QCBF * (CPL - CMV) - J_BBB - J_LV - J_TFV;
+dxdt_ECF  =  J_BBB - J_EM - QECF * CECF;
+dxdt_MEM  =  J_EM - J_MI;
+dxdt_ICF  =  J_MI - J_IL;
+dxdt_LYS  =  J_IL;
+dxdt_LV   =  J_LV + QECF * CECF - QCSF * CLV;
+dxdt_TFV  =  J_TFV + QCSF * CLV - QCSF * CTFV;
+dxdt_CM   =  QCSF * CTFV - QCSF * CCM;
+dxdt_SAS  =  QCSF * CCM - QCSF * CSASc;
+
+[OMEGA] @annotated
+ECLE  : 0.00166 : Posterior uncertainty CLe (variance, relative SD 4.1%), not IIV
+EVCEN : 0.0377  : Posterior uncertainty Vcen (variance, relative SD 19.6%), not IIV
+
+[SIGMA] @annotated
+PROP_PL  : 0      : Proportional error plasma, not used (log-additive model)
+ADD_PL   : 0.0906 : Additive error on log scale, plasma (variance, SD 0.301)
+PROP_SAS : 0      : Proportional error SAS, not used (log-additive model)
+ADD_SAS  : 0.0188 : Additive error on log scale, SAS (variance, SD 0.137)
+
+[TABLE]
+double IPRED = CENT / VCEN;
+double CSAS = SAS / VSAS;
+double C_ECF = ECF / VECF;
+double PAR = IPRED;
+double MET = CSAS;
+double DV = exp(log(PAR) + EPS(2));
+if (self.cmt == 10) DV = exp(log(MET) + EPS(4));
+
+[CAPTURE] @annotated
+DV    : Aciclovir concentration, plasma or lumbar CSF according to cmt (mg/L)
+PAR   : Aciclovir plasma concentration (mg/L), first observation type (mapbayr name)
+MET   : Aciclovir lumbar CSF concentration (mg/L), second observation type (mapbayr name)
+CSAS  : Aciclovir concentration in lumbar CSF (subarachnoid space) (mg/L)
+C_ECF : Aciclovir concentration in brain extracellular fluid (mg/L)
+CLE   : Plasma clearance (L/h)
+VCEN  : Plasma central volume (L)
+'
+mod <- mcode("ACV_Sun", code)
+```
+
+```{r simulation}
+# Standard regimen 10 mg/kg every 8 h (70 kg, 1-h infusion) and the proposed regimens 15 mg/kg every 6 h (1-h infusion, HSV)
+# and 20 mg/kg every 6 h (2-h infusion, VZV), steady state (day 4)
+reg <- data.frame(ID = 1:3, amt = c(10, 15, 20) * 70, ii = c(8, 6, 6), dur = c(1, 1, 2),
+                  Regimen = c("10 mg/kg q8h, 1 h", "15 mg/kg q6h, 1 h", "20 mg/kg q6h, 2 h"))
+data <- reg %>% mutate(time = 0, evid = 1, cmt = 1, rate = amt / dur, addl = 96 / ii - 1) %>% select(-Regimen, -dur)
+
+out <- mod %>%
+  zero_re() %>%
+  data_set(data) %>%
+  mrgsim(end = 96, delta = 0.02) %>%
+  as.data.frame() %>%
+  left_join(reg %>% select(ID, Regimen), by = "ID") %>%
+  left_join(data %>% select(ID, ii), by = "ID") %>%
+  filter(time >= 96 - ii) %>%
+  mutate(time = time - (96 - ii), Plasma = PAR, Brain_ECF = C_ECF, Lumbar_CSF = CSAS)
+
+# Article (Fig. 3, 10 mg/kg TID, medians): plasma Css,max 11.2, AUCtau 26.1; SAS Css,max 1.0, Css,min 0.5, AUCtau 5.9 mg/L or mg.h/L
+long <- out %>% select(Regimen, time, Plasma, Brain_ECF, Lumbar_CSF) %>%
+  pivot_longer(c(Plasma, Brain_ECF, Lumbar_CSF), names_to = "Site", values_to = "Conc")
+long %>% group_by(Regimen, Site) %>%
+  summarise(Cmax = max(Conc), Cmin = min(Conc), AUCtau = sum(diff(time) * (head(Conc, -1) + tail(Conc, -1)) / 2),
+            .groups = "drop")
+
+ggplot(long, aes(time, Conc, colour = Site)) +
+  geom_line() +
+  geom_hline(yintercept = c(0.56, 1.125), linetype = 2) +
+  facet_wrap(~Regimen, scales = "free_x") +
+  scale_y_log10() +
+  theme_bw() +
+  labs(x = "Time after dose (h)", y = "Aciclovir concentration (mg/L)", colour = NULL,
+       title = "Sun et al. 2025 - LeiCNS PBPK, steady state")
+```

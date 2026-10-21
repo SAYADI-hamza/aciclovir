@@ -5,19 +5,20 @@ output: html_document
 
 # Shedding a Light on Acyclovir Pharmacodynamics: A Retrospective Analysis on Pharmacokinetic/Pharmacodynamic Modelling of Acyclovir for the Treatment of Varicella Zoster Virus Infection in Immunocompromised Patients: A Pilot Study (Grit GF, Martson AG, Knoester M, Toren-Wielema ML, Touw DJ, Pharmaceutics 2022)
 
-Reference: doi:10.3390/pharmaceutics14112311 (Pharmaceutics 2022;14(11):2311; Table 2).
+Reference: doi:10.3390/pharmaceutics14112311 (Pharmaceutics 2022;14(11):2311; Table 2 and Supplementary Materials: Pmetrics model code and Table S1).
 
-**Model type: nonparametric population pharmacokinetic model** (NPAG, Pmetrics 1.9.7). Suitable for simulation and MAP Bayesian estimation, with caution: the nonparametric joint distribution is approximated by independent log-normal distributions (means and SDs of Table 2), the residual error is assumed, the dose unit of the bioavailability is not stated and the population includes children (see Notes).
+**Model type: nonparametric population pharmacokinetic model** (NPAG, Pmetrics 1.9.7). Suitable for simulation and MAP Bayesian estimation, with caution: the nonparametric joint distribution is approximated by independent log-normal distributions (means and SDs of Table 2), the residual error is an approximation of the Pmetrics error model, the dose unit of the bioavailability is not stated and the population includes a few children (see Notes).
 
 ## Notes
 
-- Study: retrospective TDM study (University Medical Center Groningen, 2018-2021), 43 patients treated with oral valaciclovir and/or IV aciclovir for HSV or VZV infection, 96 serum aciclovir concentrations (LC-MS/MS; levels < 0.1 mg/L and levels with unclear administration times excluded); patients on dialysis excluded. The characteristics of the 43 patients are only given in the supplement (Table S1, not available); the four patients of the PK/PD analysis were aged 2 to 69 years with eGFR 26 to 143 mL/min/1.73 m2 (Table 1). The population is mainly adult but not exclusively.
+- Study: retrospective TDM study (University Medical Center Groningen, 2018-2021), 43 patients treated with oral valaciclovir and/or IV aciclovir for HSV or VZV infection, 96 serum aciclovir concentrations (LC-MS/MS; levels < 0.1 mg/L and levels with unclear administration times excluded); patients on dialysis excluded. Median (range) age 57 (2-81) years, weight 80 (14-140) kg, height 175 (87-192) cm, BMI 25.3 (14-46) kg/m2, serum creatinine 87 (13-279) umol/L, eGFR 76 (26-255) mL/min/1.73 m2, 53% men; 14 IV aciclovir, 17 valaciclovir, 12 both (Table S1). The population is mainly adult but includes a few children (age range 2-81 years); the model has no covariate.
 - The article models IV aciclovir and oral valaciclovir simultaneously. This file is the oral valaciclovir version (gut compartment X1, first-order absorption, bioavailability FA; equations 1-2 of the article). The IV version is `adulte/aciclovir_IV/models/ACV_Grit.Rmd`, with identical disposition parameters (Ke, V).
 - Dose: `amt` in mg of valaciclovir (tablet strength). **Ambiguity:** the article does not state whether valaciclovir doses were converted to aciclovir equivalents; FA is defined as the "bioavailability of valacyclovir". **Choice:** doses in mg of valaciclovir without conversion (MWR = 1), FA being the fraction of the valaciclovir dose (mg) reaching the circulation as aciclovir. If the doses were entered as aciclovir equivalents, set MWR = 0.694 (225.2/324.3).
 - Structure: one-compartment model, first-order absorption (no lag time), first-order elimination parameterized with Ke. No covariate. CL = Ke x V is captured.
 - Typical values: means of the nonparametric distribution (Table 2): Ke 0.274 h-1, V 44.3 L, ka 0.601 h-1, FA 0.443 (medians 0.235 h-1, 52.2 L, 0.557 h-1 and 0.438).
-- IIV: CV = SD/mean of Table 2 (Ke 69.7%, V 36.9%, ka 64.1%, FA 51.0%), converted with omega^2 = ln(1 + CV^2): Ke 0.3966, V 0.1275, ka 0.3439, FA 0.2313. The OMEGA matrix is diagonal (correlations not reported). Shrinkage was high (43-59%). Individual FA is truncated at 1.
-- **Ambiguity:** the Pmetrics error model (assay error polynomial and gamma/lambda) is not reported. **Choice:** 20% proportional error (variance 0.04), no additive component.
+- IIV: CV = SD/mean of Table 2 (Ke 69.7%, V 36.9%, ka 64.1%, FA 51.0%), converted with omega^2 = ln(1 + CV^2): Ke 0.3966, V 0.1275, ka 0.3439, FA 0.2313. The OMEGA matrix is diagonal (correlations not reported). Shrinkage was high (43-59%). Individual FA is truncated at 1 (upper bound of the Pmetrics prior).
+- Residual error (Pmetrics code of the supplement): assay error polynomial SD = 0.1 + 0.1 x C (mg/L) combined with an additive lambda = 0.1 mg/L, i.e. SD = sqrt((0.1 + 0.1 x C)^2 + 0.1^2). **Ambiguity:** this error model cannot be represented exactly by the proportional/additive sigma pair required by mapbayr. **Choice:** combined error fitted (least squares on the log SD) over 0.1-30 mg/L: proportional SD 0.1145 (variance 0.0131) and additive SD 0.166 mg/L (variance 0.0276); the approximation is within 10% of the Pmetrics SD for 0.3-30 mg/L (CV 35% vs 36% at 0.5 mg/L, 20% vs 22% at 1 mg/L, 12% vs 11% at 10 mg/L).
+- Parameter ranges of the Pmetrics prior (supplement): Ke 0.001-1 h-1, V 1-70 L, ka 0.001-1 h-1, FA 0.001-1. Covariates tested (serum creatinine, weight, sex, age, height, BMI, lean body mass, BSA, eGFR) were not retained.
 - Simulation check (typical patient, steady state): 500 mg twice daily gives Cmax 2.8 mg/L, Cmin 0.35 mg/L and AUC24 37 mg.h/L; 1000 mg three times daily gives Cmax 6.4 mg/L, Cmin 2.2 mg/L and AUC24 109 mg.h/L (about twice the mean daily AUC of 57 mg.h/L reported in herpes zoster patients with this regimen and cited by Tod et al. 2001; with MWR = 0.694 it would be 76 mg.h/L). The article does not report simulated exposures; the four PK/PD patients had mean AUC24 of 29-215 mg.h/L.
 
 ```{r setup, message = FALSE}
@@ -30,9 +31,9 @@ library(ggplot2)
 ```{r model}
 code <- '
 [PROB]
-Grit et al. 2022 - aciclovir after oral valaciclovir in a TDM population (43 patients, mainly adults, 96 serum samples after
+Grit et al. 2022 - aciclovir after oral valaciclovir in a TDM population (43 patients, median age 57 years, 96 serum samples after
 IV aciclovir and oral valaciclovir, Pmetrics NPAG). One-compartment model, first-order absorption, bioavailability FA,
-first-order elimination (Ke). No covariate. IIV on Ke, V, ka and FA (log-normal approximation). Proportional residual error (assumed).
+first-order elimination (Ke). No covariate. IIV on Ke, V, ka and FA (log-normal approximation). Combined residual error (approximation of the Pmetrics error model).
 
 [SET] end = 24, delta = 0.1
 
@@ -71,8 +72,8 @@ EKA : 0.3439 : IIV KA (variance, CV 64.1%)
 EF  : 0.2313 : IIV F (variance, CV 51.0%)
 
 [SIGMA] @annotated
-PROP : 0.04 : Proportional error (variance, CV 20%, assumed) (ambiguous, see Notes)
-ADD  : 0    : Additive error (mg/L), not estimated
+PROP : 0.0131 : Proportional error (variance, SD 0.1145), approximation of the Pmetrics error (ambiguous, see Notes)
+ADD  : 0.0276 : Additive error (variance, SD 0.166 mg/L), approximation of the Pmetrics error (ambiguous, see Notes)
 
 [TABLE]
 double IPRED = CENT / V;
