@@ -1,0 +1,124 @@
+---
+title: "Valaciclovir - Kably et al. 2025"
+output: html_document
+---
+
+# Population pharmacokinetics of aciclovir and its major metabolite 9-carboxymethoxymethylguanine and safety profile of valaciclovir in early liver transplant recipients (Kably B, Briard M, Francoz C, Roux O, Houhou N, Mackiewicz V, Peytavin G, Durand F, Le MP, J Antimicrob Chemother 2025)
+
+Reference: doi:10.1093/jac/dkaf070 (J Antimicrob Chemother 2025;80(5):1302-1308; Table 2).
+
+**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, SAEM, Monolix 2023R1). Caution: not recommended for MAP Bayesian estimation as published. The published estimates do not reproduce the exposures simulated by the authors: the typical AUC is about 5 times higher than in Table 3, and the eGFR effect is much stronger than in Table 3. The reference eGFR and the dose unit are not reported, and the 9-CMMG part cannot be reconstructed (see Notes). Clarification from the authors is needed.
+
+## Notes
+
+- Study: retrospective monocentric study, 50 adult liver transplant recipients (29 men, 21 women) in the early post-operative period (median 19 days), oral valaciclovir CMV prophylaxis 1-6 g/day (mostly 2000 mg every 8 or 12 h), 255 plasma samples (ideally 0, 1, 2, 3.5 and 5 h post-dose), aciclovir and 9-CMMG by UPLC-MS/MS. Median (IQR) age 56.0 (35.5-61.5) years, weight 69.5 (60.5-84.3) kg, serum creatinine 67.5 (53.4-90) umol/L, CKD-EPI eGFR 104 (83.8-122.5) mL/min/1.73 m2 (Table 1). Oral valaciclovir only.
+- Structure (aciclovir): one-compartment model, lag time (0.3 h, fixed), first-order absorption (ka 1.19 h-1), V/F 751.19 L, CL/F 19.87 L/h, with eGFR on CL/F (beta 2.86 "CL/F [log(eGFR)]"). The authors state that CL and V are apparent, "based on the bioavailability of aciclovir from valaciclovir (F = 54%)".
+- eGFR: 2009 CKD-EPI creatinine equation indexed to BSA (mL/min/1.73 m2), computed in the model from SCR (umol/L / 88.4), AGE and SEX: 141 x min(SCr/k, 1)^a x max(SCr/k, 1)^-1.209 x 0.993^age x 1.018 if female x 1.159 if black (k 0.7/0.9, a -0.329/-0.411); the race coefficient is kept as a covariate (BLACK, default 0). eGFR is captured.
+- **Ambiguity:** the form and the reference value of the eGFR effect are not reported. **Choice:** Monolix log-transformed covariate centred on the median, CL/F = 19.87 x (eGFR/104)^2.86.
+- **Ambiguity:** the dose unit (mg of valaciclovir or aciclovir equivalents) and the way F = 54% was used are not reported. **Choice:** `amt` in mg of valaciclovir, F = 1 (apparent parameters).
+- **Ambiguity (major):** with these choices, valaciclovir 2000 mg every 8 h in a typical normorenal patient (eGFR about 110) gives an aciclovir AUC0-24 of about 280 mg.h/L at day 10, versus a median of 44.8 mg.h/L in the authors' simulations (Table 3); the latter corresponds to an apparent clearance of about 134 L/h. In addition, an exponent of 2.86 implies a 30-fold lower clearance at eGFR 30 than at eGFR 100, whereas Table 3 shows only a 2-fold higher AUC for eGFR < 30 than for eGFR > 90. Applying F = 0.54 and/or the molar conversion (0.694) to the dose does not reconcile these values. **Choice:** the Table 2 estimates are coded as published; the model must not be used for dosing or MAP estimation until the parameterization is clarified with the authors.
+- 9-CMMG: CL 234.71 L/h with eGFR effect (beta 0.62), "tissue partition coefficient Kp 0.1 h-1", IIV on CL and Kp (correlation 0.55), combined error (a 0.035 mg/L, b 0.24). The formation fraction (or rate) of 9-CMMG and its volume are not reported and Kp is given in h-1, so the parent-metabolite structure cannot be reconstructed; the metabolite is not coded.
+- Default covariates: medians of Table 1: AGE 56 years, SCR 67.5 umol/L, SEX 1 (29 men/21 women); they give an eGFR of 100 mL/min/1.73 m2 (median 104).
+- IIV: Monolix SDs (Table 2): ka 1.02, V/F 0.39, CL/F 0.87, squared: 1.0404, 0.1521 and 0.7569 (the CV% column of Table 2, 22.1%, 14.7% and 33.2%, is the RSE of the SDs).
+- Residual error (aciclovir): proportional, b = 0.35, variance 0.1225.
+
+```{r setup, message = FALSE}
+library(mrgsolve)
+library(mapbayr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r model}
+code <- '
+[PROB]
+Kably et al. 2025 - aciclovir after oral valaciclovir in early liver transplant recipients
+(50 patients, 255 samples, joint aciclovir/9-CMMG model, Monolix 2023R1 SAEM; aciclovir part only).
+One-compartment model, lag time, first-order absorption, apparent parameters. Covariate: CKD-EPI eGFR (computed from SCR, AGE, SEX)
+on CL/F (power). IIV on ka, V/F and CL/F. Proportional residual error. Published estimates inconsistent with the authors simulations.
+
+[SET] end = 24, delta = 0.1
+
+[PARAM] @annotated
+TVCL     : 19.87  : Apparent clearance CL/F for eGFR 104 mL/min/1.73 m2 (L/h) (ambiguous, see Notes)
+TH_GFR   : 2.86   : Exponent of eGFR on CL/F (ambiguous, see Notes)
+EGFR_REF : 104    : Reference eGFR, median (mL/min/1.73 m2) (ambiguous, see Notes)
+TVV      : 751.19 : Apparent volume of distribution V/F (L)
+TVKA     : 1.19   : Absorption rate constant (1/h)
+TLAG     : 0.3    : Lag time, fixed (h)
+ETA1     : 0      : IIV KA
+ETA2     : 0      : IIV V/F
+ETA3     : 0      : IIV CL/F
+
+[PARAM] @annotated @covariates
+AGE   : 56   : Age (years)
+SCR   : 67.5 : Serum creatinine (umol/L)
+SEX   : 1    : Sex (1 = male, 0 = female)
+BLACK : 0    : Black race for CKD-EPI (1 = yes, 0 = no)
+
+[CMT] @annotated
+DEPOT : Depot, valaciclovir dose (mg) [ADM]
+CENT  : Central compartment, aciclovir (mg) [OBS]
+
+[MAIN]
+double KAP   = (SEX == 0) ? 0.7 : 0.9;
+double ALPHA = (SEX == 0) ? -0.329 : -0.411;
+double SCRK  = SCR / 88.4 / KAP;
+double EGFR  = 141 * pow(SCRK < 1 ? SCRK : 1, ALPHA) * pow(SCRK > 1 ? SCRK : 1, -1.209) * pow(0.993, AGE) *
+               (SEX == 0 ? 1.018 : 1.0) * (BLACK == 1 ? 1.159 : 1.0);
+double KA = TVKA * exp(ETA1 + ETA(1));
+double V  = TVV * exp(ETA2 + ETA(2));
+double CL = TVCL * pow(EGFR / EGFR_REF, TH_GFR) * exp(ETA3 + ETA(3));
+ALAG_DEPOT = TLAG;
+
+[ODE]
+dxdt_DEPOT = -KA * DEPOT;
+dxdt_CENT  =  KA * DEPOT - CL / V * CENT;
+
+[OMEGA] @annotated
+EKA : 1.0404 : IIV KA (variance, SD 1.02)
+EV  : 0.1521 : IIV V/F (variance, SD 0.39)
+ECL : 0.7569 : IIV CL/F (variance, SD 0.87)
+
+[SIGMA] @annotated
+PROP : 0.1225 : Proportional error (variance, b = 0.35)
+ADD  : 0      : Additive error (mg/L), not estimated
+
+[TABLE]
+double IPRED = CENT / V;
+double DV = IPRED * (1 + EPS(1)) + EPS(2);
+int i = 0;
+while (DV < 0 && i < 100) { simeps(); DV = IPRED * (1 + EPS(1)) + EPS(2); ++i; }
+
+[CAPTURE] @annotated
+DV   : Aciclovir plasma concentration (mg/L)
+EGFR : Estimated GFR, CKD-EPI 2009 (mL/min/1.73 m2)
+CL   : Individual apparent clearance CL/F (L/h)
+V    : Individual apparent volume of distribution V/F (L)
+KA   : Individual absorption rate constant (1/h)
+'
+mod <- mcode("VACV_Kably", code)
+```
+
+```{r simulation}
+# Typical 56-year-old men with eGFR about 110, 75 and 25 mL/min/1.73 m2 (SCR 60, 92 and 250 umol/L),
+# valaciclovir 2000 mg every 8 h, AUC0-24 at day 10 compared with Table 3 (medians 44.8, 64.7 and 88.7 mg.h/L)
+data <- data.frame(ID = 1:3, time = 0, evid = 1, cmt = 1, amt = 2000, ii = 8, addl = 29, SCR = c(60, 92, 250))
+
+out <- mod %>%
+  zero_re() %>%
+  data_set(data) %>%
+  mrgsim(end = 240, delta = 0.05) %>%
+  as.data.frame() %>%
+  filter(time >= 216)
+
+out %>% group_by(ID) %>%
+  summarise(EGFR = EGFR[1], CL = CL[1], Cmin = min(DV[time > 216]),
+            AUC24 = sum(diff(time) * (head(DV, -1) + tail(DV, -1)) / 2))
+
+ggplot(out, aes(time - 216, DV, colour = factor(round(EGFR)))) +
+  geom_line() +
+  theme_bw() +
+  labs(x = "Time (h)", y = "Aciclovir concentration (mg/L)", colour = "eGFR",
+       title = "Kably et al. 2025 - valaciclovir 2000 mg q8h, published estimates (see Notes)")
+```

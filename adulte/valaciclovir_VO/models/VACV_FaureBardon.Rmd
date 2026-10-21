@@ -1,0 +1,134 @@
+---
+title: "Valaciclovir - Faure-Bardon et al. 2025"
+output: html_document
+---
+
+# Quantification of maternal and fetal valaciclovir exposure in a pharmacokinetic study of cytomegalovirus-infected pregnant women treated to prevent vertical transmission (Faure-Bardon V, Bouazza N, Benaboud S, Foissac F, Rouillon S, Froelicher-Bournaud L, Leruez-Ville M, Guilleminot T, Lui G, Treluyer JM, Ville Y, J Antimicrob Chemother 2025)
+
+Reference: doi:10.1093/jac/dkae470 (J Antimicrob Chemother 2025;80(3):760-766; Table 2).
+
+**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, SAEM, Monolix 2023R1). Suitable for simulation and MAP Bayesian estimation. Caution: one steady-state sample per patient and compartment, the eGFR equation is not reported, and the dose and concentration units are inferred (see Notes).
+
+## Notes
+
+- Study: 119 pregnant women with primary CMV infection in the periconceptional period or first trimester, oral valaciclovir 8 g/day (2 g every 6 h, n = 97, or 4 g every 12 h, n = 22), 119 maternal plasma and 122 amniotic fluid aciclovir concentrations at steady state, sampled at amniocentesis (median 17.4 weeks of gestation). Median (range) maternal age 33 (21-42) years, BMI 21.7 (17.0-54.1) kg/m2, eGFR 137.5 (106.9-164.2) mL/min/1.73 m2 (Table 1). Oral valaciclovir only.
+- Structure: one-compartment model with zero-order absorption (duration Tk0 2.01 h, printed "absorption constant, h") and first-order elimination; amniotic fluid modelled as an effect compartment of negligible volume linked to the central compartment, with the same input and output rate constant (kmp 0.131 h-1): dC_AF/dt = kmp x (Cp - C_AF).
+- Covariates on CL/F (power, centred on the medians): CL/F = 42.8 x (eGFR/137.5)^1.8 x (BMI/21.7)^0.468 x (GA/17.4)^-1.2, with GA the gestational age (weeks) at the time of dosing. V/F = 132 L.
+- **Ambiguity:** the equation used for the eGFR (mL/min/1.73 m2) is not reported. **Choice:** eGFR is entered directly as a covariate (`EGFR`, default 137.5), not computed from serum creatinine.
+- **Ambiguity:** units of doses and concentrations are not stated; results are given in umol/L. **Choice:** doses converted to aciclovir equivalents (molar conversion, `amt` in mg of valaciclovir x MWR 225.2/324.3 = 0.694, F = 1 for the apparent parameters) and concentrations in mg/L (1 umol/L = 0.2252 mg/L). With this choice the typical maternal AUC0-24 for 8 g/day is 575 umol.h/L, matching the median of 570 umol.h/L reported by the authors (without conversion it would be 830 umol.h/L).
+- Default covariates: medians of Table 1: eGFR 137.5 mL/min/1.73 m2, BMI 21.7 kg/m2, GA 17.4 weeks (median at amniocentesis, the reference of the covariate model).
+- IIV: CL/F only, Monolix SD 0.267, i.e. variance 0.0713.
+- Residual error (Monolix, assumed in umol/L): maternal plasma combined, additive 0.22 umol/L (0.0495 mg/L, variance 0.00245) and proportional 0.339 (variance 0.115); amniotic fluid additive 5.86 umol/L (1.32 mg/L, variance 1.742), proportional 0.
+- Maternal plasma (cmt 1) and amniotic fluid (cmt 2) are the two observation types, captured as `PAR` and `MET` (names required by mapbayr; MET is not a metabolite here).
+- Doses: zero-order input into the central compartment; in the data, use `rate = -2` (duration modelled, D_CENT = Tk0).
+- Simulation check (typical woman, 2 g every 6 h, steady state): maternal Cmin 11.0, Cmax 39.9 umol/L and AUC0-24 576 umol.h/L (article, medians of the individual estimates: 9.6, 40.7 umol/L and 570 umol.h/L); amniotic fluid Cmin 22.4, Cmax 25.3 umol/L and AUC0-24 576 umol.h/L (article: 21.2, 25.4 umol/L and 562 umol.h/L). With 4 g every 12 h, the Cmax is 75% higher in plasma and 17% higher in amniotic fluid than with 2 g every 6 h (the authors report about 50% for both compartments, from simulations with variability).
+
+```{r setup, message = FALSE}
+library(mrgsolve)
+library(mapbayr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+```{r model}
+code <- '
+[PROB]
+Faure-Bardon et al. 2025 - aciclovir after oral valaciclovir 8 g/day in pregnant women with primary CMV infection
+(119 women, 119 maternal plasma and 122 amniotic fluid samples, Monolix 2023R1 SAEM). One-compartment model,
+zero-order absorption, amniotic fluid effect compartment. Covariates on CL/F: eGFR, BMI and gestational age (power).
+IIV on CL/F. Combined (plasma) and additive (amniotic fluid) residual errors.
+
+[SET] end = 24, delta = 0.1
+
+[PARAM] @annotated
+TVCL     : 42.8  : Apparent clearance CL/F for typical covariates (L/h)
+TVV      : 132   : Apparent volume of distribution V/F (L)
+TK0      : 2.01  : Duration of zero-order absorption (h)
+KMP      : 0.131 : Plasma-to-amniotic fluid transfer and amniotic fluid elimination rate constant (1/h)
+TH_GFR   : 1.8   : Exponent of eGFR on CL/F
+TH_BMI   : 0.468 : Exponent of BMI on CL/F
+TH_GA    : -1.2  : Exponent of gestational age on CL/F
+EGFR_REF : 137.5 : Reference eGFR, median (mL/min/1.73 m2)
+BMI_REF  : 21.7  : Reference BMI, median (kg/m2)
+GA_REF   : 17.4  : Reference gestational age, median (weeks)
+MWR      : 0.694 : Molar mass ratio aciclovir/valaciclovir (225.2/324.3) (ambiguous, see Notes)
+ETA1     : 0     : IIV CL/F
+
+[PARAM] @annotated @covariates
+EGFR : 137.5 : Estimated GFR (mL/min/1.73 m2) (ambiguous, see Notes)
+BMI  : 21.7  : Body mass index (kg/m2)
+GA   : 17.4  : Gestational age at dosing (weeks)
+
+[CMT] @annotated
+CENT : Maternal central compartment, aciclovir (mg) [ADM, OBS]
+AMF  : Amniotic fluid effect compartment, aciclovir concentration (mg/L) [OBS]
+
+[MAIN]
+double CL = TVCL * pow(EGFR / EGFR_REF, TH_GFR) * pow(BMI / BMI_REF, TH_BMI) * pow(GA / GA_REF, TH_GA) * exp(ETA1 + ETA(1));
+double V  = TVV;
+F_CENT = MWR;
+D_CENT = TK0;
+
+[ODE]
+dxdt_CENT = -CL / V * CENT;
+dxdt_AMF  =  KMP * (CENT / V - AMF);
+
+[OMEGA] @annotated
+ECL : 0.0713 : IIV CL/F (variance, SD 0.267)
+
+[SIGMA] @annotated
+PROP_PL : 0.115   : Proportional error, maternal plasma (variance, SD 0.339)
+ADD_PL  : 0.00245 : Additive error, maternal plasma (variance, SD 0.22 umol/L = 0.0495 mg/L)
+PROP_AF : 0       : Proportional error, amniotic fluid, not estimated
+ADD_AF  : 1.742   : Additive error, amniotic fluid (variance, SD 5.86 umol/L = 1.32 mg/L)
+
+[TABLE]
+double PAR = CENT / V;
+double MET = AMF;
+double DV = PAR * (1 + EPS(1)) + EPS(2);
+if (self.cmt == 2) DV = MET * (1 + EPS(3)) + EPS(4);
+int i = 0;
+while (DV < 0 && i < 100) {
+  simeps();
+  DV = PAR * (1 + EPS(1)) + EPS(2);
+  if (self.cmt == 2) DV = MET * (1 + EPS(3)) + EPS(4);
+  ++i;
+}
+
+[CAPTURE] @annotated
+DV  : Aciclovir concentration, maternal plasma or amniotic fluid according to cmt (mg/L)
+PAR : Aciclovir maternal plasma concentration (mg/L)
+MET : Aciclovir amniotic fluid concentration (mg/L)
+CL  : Individual apparent clearance CL/F (L/h)
+'
+mod <- mcode("VACV_FaureBardon", code)
+```
+
+```{r simulation}
+# Typical pregnant woman, valaciclovir 8 g/day: 2 g every 6 h or 4 g every 12 h (zero-order absorption, rate = -2), steady state
+data <- data.frame(ID = 1:2, time = 0, evid = 1, cmt = 1, amt = c(2000, 4000), rate = -2, ii = c(6, 12), addl = c(23, 11))
+
+out <- mod %>%
+  zero_re() %>%
+  data_set(data) %>%
+  mrgsim(end = 144, delta = 0.05) %>%
+  as.data.frame() %>%
+  filter(time >= 120) %>%
+  mutate(time = time - 120, Regimen = factor(ID, labels = c("2 g q6h", "4 g q12h")))
+
+# Article (medians of individual estimates, 2 g q6h in 82% of women): maternal Cmin 9.6, Cmax 40.7 umol/L, AUC0-24 570 umol.h/L;
+# amniotic fluid Cmin 21.2, Cmax 25.4 umol/L, AUC0-24 562 umol.h/L (1 umol/L = 0.2252 mg/L)
+long <- out %>% select(Regimen, time, Plasma = PAR, Amniotic_fluid = MET) %>%
+  pivot_longer(c(Plasma, Amniotic_fluid), names_to = "Site", values_to = "Conc")
+long %>% group_by(Regimen, Site) %>%
+  summarise(Cmax_uM = max(Conc) / 0.2252, Cmin_uM = min(Conc) / 0.2252,
+            AUC24_uMh = sum(diff(time) * (head(Conc, -1) + tail(Conc, -1)) / 2) / 0.2252, .groups = "drop")
+
+ggplot(long, aes(time, Conc, colour = Site)) +
+  geom_line() +
+  facet_wrap(~Regimen) +
+  theme_bw() +
+  labs(x = "Time (h)", y = "Aciclovir concentration (mg/L)", colour = NULL,
+       title = "Faure-Bardon et al. 2025 - valaciclovir 8 g/day in pregnancy, steady state")
+```

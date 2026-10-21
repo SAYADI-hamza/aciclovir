@@ -1,6 +1,6 @@
 # Aciclovir and valaciclovir: population pharmacokinetic models
 
-Population pharmacokinetic (popPK) models of aciclovir, administered intravenously or orally, or as its oral
+Population pharmacokinetic (popPK) models of aciclovir, administered intravenously or as its oral
 prodrug valaciclovir, coded with [mrgsolve](https://mrgsolve.org) and compatible with
 [mapbayr](https://github.com/FelicienLL/mapbayr) for MAP Bayesian estimation and model-informed
 precision dosing.
@@ -10,16 +10,14 @@ precision dosing.
 ```
 <population>/
 ├── aciclovir_IV/models/ACV_<FirstAuthor>[_<year>[a|b]].Rmd      intravenous aciclovir
-├── aciclovir_VO/models/ACV_<FirstAuthor>[_<year>[a|b]].Rmd      oral aciclovir
 └── valaciclovir_VO/models/VACV_<FirstAuthor>[_<year>[a|b]].Rmd  oral valaciclovir
 ```
 
 | Folder | Population | Route | Prefix | Models |
 |---|---|---|---|---|
 | `adulte/aciclovir_IV/` | Adults | Intravenous aciclovir | `ACV_` | 2 (including 1 illustrative CNS PBPK model) |
-| `adulte/valaciclovir_VO/` | Adults | Oral valaciclovir | `VACV_` | 1 |
+| `adulte/valaciclovir_VO/` | Adults | Oral valaciclovir | `VACV_` | 4 |
 | `pediatrie/aciclovir_IV/` | Children and neonates | Intravenous aciclovir | `ACV_` | 5 |
-| `pediatrie/aciclovir_VO/` | Children and neonates | Oral aciclovir | `ACV_` | 2 |
 | `pediatrie/valaciclovir_VO/` | Children | Oral valaciclovir | `VACV_` | 2 |
 
 When an article describes several routes (or both adults and children), each folder contains the version of
@@ -52,7 +50,7 @@ Each R Markdown file contains:
 - Variability reported as %CV is converted with omega^2 = ln(1 + CV^2); omegas or sigmas reported as SD are squared; reported variances are used directly.
 - Between-occasion variability is implemented with two paired occasions (covariate `OCC`).
 - Residual error: one proportional/additive sigma pair per observed compartment (`DV = IPRED*(1 + EPS(1)) + EPS(2)`); other error models (power, exponential) are approximated by this pair and the approximation is described in the Notes; when the residual error is not published (e.g. Pmetrics), a 20% proportional error is assumed.
-- Intravenous doses are infusions into the central compartment (`rate` in the data, actual infusion duration, 1 h when not reported); oral doses go to the depot compartment.
+- Intravenous doses are infusions into the central compartment (`rate` in the data, actual infusion duration, 1 h when not reported); oral valaciclovir doses go to the depot compartment (or are a zero-order input into the central compartment when the article models it so).
 
 ## Requirements
 

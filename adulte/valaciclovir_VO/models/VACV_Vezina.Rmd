@@ -1,0 +1,102 @@
+---
+title: "Valaciclovir - Vezina et al. 2010"
+output: html_document
+---
+
+# Valacyclovir Pharmacokinetics and Exploratory Pharmacodynamics in Young Adults With Epstein-Barr Virus Infectious Mononucleosis (Vezina HE, Balfour HH Jr, Weller DR, Anderson BJ, Brundage RC, J Clin Pharmacol 2010)
+
+Reference: doi:10.1177/0091270009351884 (J Clin Pharmacol 2010;50(7):734-742; Table II).
+
+**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, FOCE with interaction, NONMEM VI). Suitable for simulation and MAP Bayesian estimation. Caution: small study (8 healthy young adults with normal renal function, no covariate), apparent parameters.
+
+## Notes
+
+- Study: 8 university students (18-20 years, 4 men, 4 women) with primary EBV infectious mononucleosis and normal serum creatinine and eGFR, valaciclovir 1500 mg twice daily for 7 days; 12-h pharmacokinetic visit on day 3, 4 or 5 (0, 1, 2, 4, 6, 8, 12 h) plus sparse samples; 84 plasma and 64 oral wash supernatant aciclovir concentrations (HPLC-UV, plasma LLOQ 25 ng/mL). Weight was not reported. Oral valaciclovir only.
+- Dose coding (explicit): "Doses for valacyclovir were recorded as milligrams of valacyclovir and not corrected for molecular weight differences"; `amt` is in mg of valaciclovir and the apparent parameters CL/F and V/F include the conversion (F = 1 in the model).
+- Structure: one-compartment model, first-order absorption from a depot (instantaneous conversion of valaciclovir to aciclovir), first-order elimination (ADVAN2 TRANS2). Final estimates (Table II): CL/F 49.9 L/h, V/F 74.1 L, ka 0.28 h-1.
+- Oral wash supernatant concentrations were modelled as a constant fraction of the plasma concentration (Fsup 1.14%, IIV CV 15.5%, residual CV 50.8%). The oral wash concentration (Fsup x plasma concentration) is captured (`C_SUP`, typical value) but not included as an observation for MAP estimation (mapbayr requires an observation compartment; plasma is the only one).
+- IIV (Table II, CV%, "proportional error model, log-normal distribution"): CL/F 11.8%, V/F 20.0%, converted with omega^2 = ln(1 + CV^2): 0.0138 and 0.0392. No IIV on ka. The IIV estimates are imprecise (RSE 109% and 196%).
+- Residual error: log-normal (exponential) for plasma, CV 36.9%, coded as an additive error on the log scale with variance ln(1 + 0.369^2) = 0.128 (proportional component 0).
+- Simulation check: 1500 mg twice daily gives a steady-state AUC12 of 30.1 mg.h/L in the typical subject (article: median AUCpl 29,900 ng.h/mL, printed "ng.L/h"), and an oral wash AUC12 of 0.34 mg.h/L (article: 341 ng.h/mL).
+
+```{r setup, message = FALSE}
+library(mrgsolve)
+library(mapbayr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r model}
+code <- '
+[PROB]
+Vezina et al. 2010 - aciclovir after oral valaciclovir in young adults with EBV infectious mononucleosis
+(8 subjects, 84 plasma samples, valaciclovir 1500 mg twice daily, NONMEM VI FOCE-I). One-compartment model,
+first-order absorption, apparent parameters (doses in mg of valaciclovir, F = 1). No covariate.
+IIV on CL/F and V/F. Log-normal residual error.
+
+[SET] end = 24, delta = 0.1
+
+[PARAM] @annotated
+TVCL  : 49.9 : Apparent clearance CL/F (L/h, valaciclovir mg basis)
+TVV   : 74.1 : Apparent volume of distribution V/F (L)
+TVKA  : 0.28 : Absorption rate constant (1/h)
+FSUP  : 0.0114 : Fraction of the plasma concentration in oral wash supernatant
+ETA1  : 0    : IIV CL/F
+ETA2  : 0    : IIV V/F
+
+[CMT] @annotated
+DEPOT : Depot, valaciclovir dose (mg) [ADM]
+CENT  : Central compartment, aciclovir (mg) [OBS]
+
+[MAIN]
+double CL = TVCL * exp(ETA1 + ETA(1));
+double V  = TVV * exp(ETA2 + ETA(2));
+double KA = TVKA;
+
+[ODE]
+dxdt_DEPOT = -KA * DEPOT;
+dxdt_CENT  =  KA * DEPOT - CL / V * CENT;
+
+[OMEGA] @annotated
+ECL : 0.0138 : IIV CL/F (variance, CV 11.8%)
+EV  : 0.0392 : IIV V/F (variance, CV 20.0%)
+
+[SIGMA] @annotated
+PROP : 0     : Proportional error, not used (log-additive model)
+ADD  : 0.128 : Additive error on log scale (variance, CV 36.9%)
+
+[TABLE]
+double IPRED = CENT / V;
+double DV = exp(log(IPRED) + EPS(2));
+double C_SUP = FSUP * IPRED;
+
+[CAPTURE] @annotated
+DV    : Aciclovir plasma concentration (mg/L)
+C_SUP : Aciclovir concentration in oral wash supernatant, typical fraction (mg/L)
+CL    : Individual apparent clearance CL/F (L/h)
+V     : Individual apparent volume of distribution V/F (L)
+'
+mod <- mcode("VACV_Vezina", code)
+```
+
+```{r simulation}
+# Valaciclovir 1500 mg twice daily, typical subject, steady state (day 4)
+out <- mod %>%
+  zero_re() %>%
+  ev(amt = 1500, ii = 12, addl = 7) %>%
+  mrgsim(end = 96, delta = 0.05) %>%
+  as.data.frame() %>%
+  filter(time >= 84) %>%
+  mutate(time = time - 84)
+
+# Article: median AUC12 29.9 mg.h/L (plasma) and 0.341 mg.h/L (oral wash supernatant)
+out %>% summarise(Cmax = max(DV), Cmin = min(DV[time > 0]),
+                  AUC12 = sum(diff(time) * (head(DV, -1) + tail(DV, -1)) / 2),
+                  AUC12_sup = sum(diff(time) * (head(C_SUP, -1) + tail(C_SUP, -1)) / 2))
+
+ggplot(out, aes(time, DV)) +
+  geom_line() +
+  theme_bw() +
+  labs(x = "Time after dose (h)", y = "Aciclovir plasma concentration (mg/L)",
+       title = "Vezina et al. 2010 - valaciclovir 1500 mg twice daily, steady state")
+```
