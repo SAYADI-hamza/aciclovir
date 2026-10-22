@@ -5,9 +5,9 @@ output: html_document
 
 # Population pharmacokinetics of aciclovir and its major metabolite 9-carboxymethoxymethylguanine and safety profile of valaciclovir in early liver transplant recipients (Kably B, Briard M, Francoz C, Roux O, Houhou N, Mackiewicz V, Peytavin G, Durand F, Le MP, J Antimicrob Chemother 2025)
 
-Reference: doi:10.1093/jac/dkaf070 (J Antimicrob Chemother 2025;80(5):1302-1308; Table 2).
+Reference: doi:10.1093/jac/dkaf070 (J Antimicrob Chemother 2025;80(5):1302-1308; Table 2 and Supplementary data, Figures S1-S5).
 
-**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, SAEM, Monolix 2023R1). Caution: not recommended for MAP Bayesian estimation as published. The published estimates do not reproduce the exposures simulated by the authors: the typical AUC is about 5 times higher than in Table 3, and the eGFR effect is much stronger than in Table 3. The reference eGFR and the dose unit are not reported, and the 9-CMMG part cannot be reconstructed (see Notes). Clarification from the authors is needed.
+**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, SAEM, Monolix 2023R1). Caution: not recommended for MAP Bayesian estimation as published. The eGFR effect (exponent 2.86) is much stronger than the population predictions of Figure S1 and the simulations of Table 3 allow, the reference eGFR is not reported, the typical AUC remains about 1.5-2.5 times higher than in Table 3, and the 9-CMMG part cannot be reconstructed (see Notes). Clarification from the authors is needed.
 
 ## Notes
 
@@ -15,8 +15,8 @@ Reference: doi:10.1093/jac/dkaf070 (J Antimicrob Chemother 2025;80(5):1302-1308;
 - Structure (aciclovir): one-compartment model, lag time (0.3 h, fixed), first-order absorption (ka 1.19 h-1), V/F 751.19 L, CL/F 19.87 L/h, with eGFR on CL/F (beta 2.86 "CL/F [log(eGFR)]"). The authors state that CL and V are apparent, "based on the bioavailability of aciclovir from valaciclovir (F = 54%)".
 - eGFR: 2009 CKD-EPI creatinine equation indexed to BSA (mL/min/1.73 m2), computed in the model from SCR (umol/L / 88.4), AGE and SEX: 141 x min(SCr/k, 1)^a x max(SCr/k, 1)^-1.209 x 0.993^age x 1.018 if female x 1.159 if black (k 0.7/0.9, a -0.329/-0.411); the race coefficient is kept as a covariate (BLACK, default 0). eGFR is captured.
 - **Ambiguity:** the form and the reference value of the eGFR effect are not reported. **Choice:** Monolix log-transformed covariate centred on the median, CL/F = 19.87 x (eGFR/104)^2.86.
-- **Ambiguity:** the dose unit (mg of valaciclovir or aciclovir equivalents) and the way F = 54% was used are not reported. **Choice:** `amt` in mg of valaciclovir, F = 1 (apparent parameters).
-- **Ambiguity (major):** with these choices, valaciclovir 2000 mg every 8 h in a typical normorenal patient (eGFR about 110) gives an aciclovir AUC0-24 of about 280 mg.h/L at day 10, versus a median of 44.8 mg.h/L in the authors' simulations (Table 3); the latter corresponds to an apparent clearance of about 134 L/h. In addition, an exponent of 2.86 implies a 30-fold lower clearance at eGFR 30 than at eGFR 100, whereas Table 3 shows only a 2-fold higher AUC for eGFR < 30 than for eGFR > 90. Applying F = 0.54 and/or the molar conversion (0.694) to the dose does not reconcile these values. **Choice:** the Table 2 estimates are coded as published; the model must not be used for dosing or MAP estimation until the parameterization is clarified with the authors.
+- **Ambiguity:** the dose unit is not reported; the authors state that CL and V are apparent, "based on the bioavailability of aciclovir from valaciclovir (F = 54%)". **Choice:** `amt` in mg of valaciclovir, converted in the model to the bioavailable aciclovir dose, dose x MWR (225.2/324.3 = 0.694) x F (0.54) = 0.375 x dose, i.e. the reported CL/F and V/F are applied to this bioavailable dose. Rationale (Supplementary Figure S1): the population predictions of aciclovir lie between about 0.5 and 5.5 mg/L, mostly 3-5 mg/L, in patients receiving mostly 2000 mg every 8 or 12 h with normal renal function. With the 0.375 factor, a typical patient with eGFR 104 has steady-state concentrations of 4.3-5.0 mg/L (2000 mg every 8 h) and 2.7-3.5 mg/L (every 12 h), consistent with Figure S1; without conversion they would be 11.6-13.3 and 7.3-9.2 mg/L, and with F alone 6.2-7.2 and 3.9-5.0 mg/L. With this factor, CL = 19.87 L/h is also a plausible systemic aciclovir clearance. The distribution of the individual CL in Figure S3 (mostly 5-50 L/h) confirms the order of magnitude of the typical value.
+- **Ambiguity (major):** even with the dose conversion, (1) the typical aciclovir AUC0-24 with 2000 mg every 8 h is 113 mg.h/L at eGFR 104 and about 60-80 mg.h/L at eGFR 115-130, versus a median of 44.8 mg.h/L for eGFR > 90 in Table 3; (2) an exponent of 2.86 gives a clearance about 30 times lower at eGFR 30 than at eGFR 100, whereas Table 3 shows only a 2-fold higher AUC for eGFR < 30 than for eGFR > 90, and the model predicts steady-state concentrations of 7.5-12 mg/L for a typical patient with eGFR 75 (2000 mg every 8 or 12 h), above the highest population predictions of Figure S1 (about 5.5 mg/L) although 26% of the patients had an eGFR of 61-90. The very long typical half-life (about 26 h, V/F 751 L) is also unusual for aciclovir. **Choice:** the Table 2 estimates are coded as published; the model must not be used for dosing or MAP estimation until the covariate model is clarified with the authors.
 - 9-CMMG: CL 234.71 L/h with eGFR effect (beta 0.62), "tissue partition coefficient Kp 0.1 h-1", IIV on CL and Kp (correlation 0.55), combined error (a 0.035 mg/L, b 0.24). The formation fraction (or rate) of 9-CMMG and its volume are not reported and Kp is given in h-1, so the parent-metabolite structure cannot be reconstructed; the metabolite is not coded.
 - Default covariates: medians of Table 1: AGE 56 years, SCR 67.5 umol/L, SEX 1 (29 men/21 women); they give an eGFR of 100 mL/min/1.73 m2 (median 104).
 - IIV: Monolix SDs (Table 2): ka 1.02, V/F 0.39, CL/F 0.87, squared: 1.0404, 0.1521 and 0.7569 (the CV% column of Table 2, 22.1%, 14.7% and 33.2%, is the RSE of the SDs).
@@ -34,7 +34,7 @@ code <- '
 [PROB]
 Kably et al. 2025 - aciclovir after oral valaciclovir in early liver transplant recipients
 (50 patients, 255 samples, joint aciclovir/9-CMMG model, Monolix 2023R1 SAEM; aciclovir part only).
-One-compartment model, lag time, first-order absorption, apparent parameters. Covariate: CKD-EPI eGFR (computed from SCR, AGE, SEX)
+One-compartment model, lag time, first-order absorption, dose converted to the bioavailable aciclovir dose (x 0.694 x 0.54). Covariate: CKD-EPI eGFR (computed from SCR, AGE, SEX)
 on CL/F (power). IIV on ka, V/F and CL/F. Proportional residual error. Published estimates inconsistent with the authors simulations.
 
 [SET] end = 24, delta = 0.1
@@ -46,6 +46,8 @@ EGFR_REF : 104    : Reference eGFR, median (mL/min/1.73 m2) (ambiguous, see Note
 TVV      : 751.19 : Apparent volume of distribution V/F (L)
 TVKA     : 1.19   : Absorption rate constant (1/h)
 TLAG     : 0.3    : Lag time, fixed (h)
+MWR      : 0.694  : Molar mass ratio aciclovir/valaciclovir (225.2/324.3)
+FVAL     : 0.54   : Bioavailability of aciclovir from valaciclovir applied to the dose (ambiguous, see Notes)
 ETA1     : 0      : IIV KA
 ETA2     : 0      : IIV V/F
 ETA3     : 0      : IIV CL/F
@@ -70,6 +72,7 @@ double KA = TVKA * exp(ETA1 + ETA(1));
 double V  = TVV * exp(ETA2 + ETA(2));
 double CL = TVCL * pow(EGFR / EGFR_REF, TH_GFR) * exp(ETA3 + ETA(3));
 ALAG_DEPOT = TLAG;
+F_DEPOT = MWR * FVAL;
 
 [ODE]
 dxdt_DEPOT = -KA * DEPOT;
