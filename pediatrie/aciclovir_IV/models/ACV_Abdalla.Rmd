@@ -22,6 +22,7 @@ Reference: doi:10.1128/AAC.01426-20 (Antimicrob Agents Chemother 2020;64(12):e01
 - Residual error: proportional, Monolix b = 0.48 (SD), variance 0.2304.
 - Targets used by the authors: trough > 0.56 mg/L (HSV) or > 1.125 mg/L (VZV) and peak < 25 mg/L; augmented renal clearance defined as eGFR >= 250 mL/min/1.73 m2. Proposed initial IV doses: 10 mg/kg every 6 h (eGFR < 250), 15-20 mg/kg every 6 h (eGFR >= 250).
 - Simulation check (typical 15 kg child, 1-h infusion, steady state): 10 mg/kg every 6 h with eGFR 164 gives Cmax 9.3 and Cmin 1.9 mg/L; 20 mg/kg every 6 h with eGFR 300 gives Cmax 15.7 and Cmin 1.5 mg/L, i.e. within the targets as reported for these proposed regimens (Fig. 5). The typical CL (0.34 L/h/kg) and V (1.08 L/kg) agree with the values discussed by the authors (0.35 L/h/kg and 1.2 L/kg).
+- Monte Carlo check against the Results (5,000 children with the published IIV, weight log-normal around 15 kg within 3.1-66 kg, eGFR log-normal around 164 mL/min/1.73 m2 split at 250, 1-h infusion, steady state; the individual covariates of the authors' 1,000 simulated children are not reported): 10 mg/kg every 6 h with eGFR < 250 gives 0.4% of peaks above 25 mg/L (article 0.7%); with eGFR >= 250, 15 and 20 mg/kg every 6 h give 36.0% and 29.0% of troughs below 0.56 mg/L (article: 29.5 to 37% underdosed) and 0.8% and 7.1% of peaks above 25 mg/L (article: 0.5 to 5.5% overdosed), and no peak above 50 mg/L (as reported).
 
 ```{r setup, message = FALSE}
 library(mrgsolve)

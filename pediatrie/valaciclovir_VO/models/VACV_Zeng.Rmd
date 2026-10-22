@@ -7,7 +7,7 @@ output: html_document
 
 Reference: doi:10.1128/AAC.01138-08 (Antimicrob Agents Chemother 2009;53(7):2918-2927; Table 3).
 
-**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, FOCE with interaction, NONMEM V). Suitable for simulation and MAP Bayesian estimation. Caution: the default serum creatinine is assumed and the dose unit of the bioavailability is not stated (see Notes).
+**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, FOCE with interaction, NONMEM V). Suitable for simulation and MAP Bayesian estimation. Caution: the default serum creatinine is assumed, the dose unit of the bioavailability is not stated and the authors' simulations (Table 5) are not reproduced exactly (see Notes).
 
 ## Notes
 
@@ -24,7 +24,8 @@ Reference: doi:10.1128/AAC.01138-08 (Antimicrob Agents Chemother 2009;53(7):2918
 - IOV (Table 3, CV%): CL 19.2%, V 30.4% (omega^2 0.0362 and 0.0883), occasions of 7 days; implemented with two paired occasions (covariate OCC).
 - Residual error: Y = IPRED x exp(eps1) + eps2, approximated by a combined proportional/additive error. **Ambiguity:** sigma1 = 0.26 and sigma2 = 0.1 are not stated as SDs or variances. **Choice:** SDs (proportional CV 26%, additive SD 0.1 mg/L), i.e. variances 0.0676 and 0.01.
 - Targets used by the authors: time above IC50 (0.56 mg/L for HSV, 1.125 mg/L for VZV) > 12 h per 24 h ("maximal efficacy").
-- Simulation check (10 mg/kg twice daily, typical patients): time above 0.56 / 1.125 mg/L per 24 h of 18.7 / 14.9 h, 14.7 / 11.4 h and 13.2 / 10.2 h for a 10 kg child with CLCR 2.0, 4.0 and 5.5 L/h/m2 (article, Table 5, medians of 1,000 simulated patients: 16.1 / 12.6, 11.3 / 8.8 and 9.6 / 7.5 h).
+- Simulation check against Table 5 (Monte Carlo, 2,000 patients per scenario with the published IIV and IOV, 10 mg/kg twice daily, steady state): median time above 0.56 / 1.125 mg/L per 24 h of 19.2 / 14.6 h, 14.8 / 11.0 h and 13.4 / 9.8 h for a 10 kg child with CLCR 2.0, 4.0 and 5.5 L/h/m2 (article: 16.1 / 12.6, 11.3 / 8.8 and 9.6 / 7.5 h), 18.0 / 13.8 h for 25 kg and 20.2 / 15.4 h for 50 kg at CLCR 4.0 (article 14.2 / 11.1 and 16.9 / 13.2 h).
+- **Ambiguity:** as for the IV route (see `pediatrie/aciclovir_IV/models/ACV_Zeng.Rmd`), the authors' simulations are not reproduced exactly: the simulated times are 2-4 h longer, and the published times decrease more steeply with CLCR than the model allows with ka 0.63 h-1 (Table 5 is matched by the typical patient only with ka about 3 h-1 and an effective F about 0.5, which contradicts Table 3). Without the molar conversion (MWR = 1) the discrepancy is about three times larger (sum of squared differences over the 18 typical medians 346 vs 119 h2), which supports the conversion. **Choice:** the Table 3 estimates with the molar conversion; exposures may be higher than in the authors' simulations.
 
 ```{r setup, message = FALSE}
 library(mrgsolve)

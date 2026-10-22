@@ -7,7 +7,7 @@ output: html_document
 
 Reference: doi:10.1128/AAC.01138-08 (Antimicrob Agents Chemother 2009;53(7):2918-2927; Table 3).
 
-**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, FOCE with interaction, NONMEM V). Suitable for simulation and MAP Bayesian estimation. Caution: the default serum creatinine is assumed (not reported, see Notes).
+**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, FOCE with interaction, NONMEM V). Suitable for simulation and MAP Bayesian estimation. Caution: the default serum creatinine is assumed (not reported) and the authors' simulations (Table 4) are not reproduced exactly (see Notes).
 
 ## Notes
 
@@ -22,7 +22,8 @@ Reference: doi:10.1128/AAC.01138-08 (Antimicrob Agents Chemother 2009;53(7):2918
 - IOV (Table 3, CV%): CL 19.2%, V 30.4% (omega^2 0.0362 and 0.0883), occasions of 7 days; implemented with two paired occasions (covariate OCC).
 - Residual error: Y = IPRED x exp(eps1) + eps2, approximated by a combined proportional/additive error. **Ambiguity:** sigma1 = 0.26 and sigma2 = 0.1 are not stated as SDs or variances. **Choice:** SDs (proportional CV 26%, additive SD 0.1 mg/L), i.e. variances 0.0676 and 0.01.
 - Targets used by the authors: time above IC50 (0.56 mg/L for HSV, 1.125 mg/L for VZV) > 12 h per 24 h ("maximal efficacy").
-- Simulation check (5 mg/kg every 8 h, typical patients): time above 0.56 / 1.125 mg/L per 24 h of 24 / 19.5 h, 17.6 / 14.0 h and 15.2 / 12.0 h for a 10 kg child with CLCR 2.0, 4.0 and 5.5 L/h/m2 (article, Table 4, medians of 1,000 simulated patients: 21.8 / 16.4, 15.2 / 11.5 and 12.9 / 9.8 h), with the same trends with weight and CLCR.
+- Simulation check against Table 4 (Monte Carlo, 1,000 patients per scenario with the published IIV and IOV, 5 mg/kg every 8 h, 1-h infusion, steady state): median time above 0.56 / 1.125 mg/L per 24 h of 23.7 / 18.9 h, 17.1 / 13.5 h and 15.0 / 11.7 h for a 10 kg child with CLCR 2.0, 4.0 and 5.5 L/h/m2 (article: 21.8 / 16.4, 15.2 / 11.5 and 12.9 / 9.8 h), 21.6 / 17.1 h for 25 kg and 24.0 / 19.8 h for 50 kg at CLCR 4.0 (article 19.2 / 14.5 and 22.8 / 17.2 h); percentage of 10 kg children with more than 12 h above 0.56 mg/L 96, 82 and 71% (article 81.5, 64.7 and 54.0%). The trends with weight and CLCR are reproduced, but the simulated times are about 2 h longer in all 9 scenarios.
+- **Ambiguity:** Table 4 is not reproduced exactly with the Table 3 estimates. The 9 typical medians are reproduced within 1.2 h (VZV within 0.4 h) only if CL is multiplied by 1.17 (or V by 0.78), which matches no documented alternative (the CLCR and weight equations are explicit in the Methods; bolus or 2-h infusions, residual error and IOV do not explain the difference). The 5th percentiles of Table 4 (7.2, 5.1 and 4.3 h for 10 kg) are much lower than those simulated with the published variability (12.9, 9.3 and 8.4 h) and are close to those obtained when the reported CVs are used directly as variances (7.2, 5.7 and 4.8 h), suggesting that the authors' simulation settings differed from Table 3. **Choice:** the Table 3 estimates and the omega^2 = ln(1 + CV^2) conversion are kept; exposures may be about 15% higher than in the authors' simulations.
 
 ```{r setup, message = FALSE}
 library(mrgsolve)
