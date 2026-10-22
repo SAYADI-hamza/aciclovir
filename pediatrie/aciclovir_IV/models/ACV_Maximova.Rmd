@@ -7,17 +7,20 @@ output: html_document
 
 Reference: doi:10.3389/fphar.2022.865871 (Front Pharmacol 2022;13:865871; Table 2).
 
-**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, NONMEM 7.4, estimation method not reported). Suitable for simulation and MAP Bayesian estimation. Caution: the covariate equation and the scale of the residual error are ambiguous, and the typical clearance is about half of the post hoc mean clearance reported by the authors (see Notes).
+**Model type: parametric population pharmacokinetic model** (nonlinear mixed-effects, NONMEM 7.4, estimation method not reported). Suitable for simulation and MAP Bayesian estimation. Caution: the published covariate equation is ambiguous and was reconstructed from the post hoc estimates and the simulations of the authors (see Notes).
 
 ## Notes
 
 - Study: prospective single-centre study (Trieste, 2011-2020), 120 children (73 boys, 47 girls) with haematological malignancies receiving IV aciclovir for prophylaxis (n = 94) or treatment (n = 26) during allogeneic HSCT or high-intensity chemotherapy, under therapeutic drug monitoring; 374 plasma concentrations (pairs of Cmax and Cmin on 1 to 3 occasions, LC-MS/MS). Mean (SD) and median age 8.6 (5.0) and 9.5 years, weight 32.4 (19.1) and 27.8 kg, height 128.2 (30.0) and 131.5 cm, SCR 0.361 (0.206) and 0.320 mg/dL, eGFR 228.1 (79.7) and 209.4 mL/min/1.73 m2 (Table 1). Intravenous only.
 - Dose: `amt` in mg of aciclovir, 1-h infusion every 6-8 h (`rate = amt / 1`). Samples were drawn 10 min before the dose (Cmin) and 30 min after the end of infusion (Cmax).
 - Structure: one-compartment model, first-order elimination.
-- Covariates: eGFR (power) and weight (allometric) on CL, weight on V. eGFR is the Schwartz 1976 formula (the only reference given), eGFR (mL/min/1.73 m2) = 0.55 x HT (cm) / SCR (mg/dL), computed in the model with SCR in umol/L divided by 88.4; it is captured.
+- Covariates: eGFR (power) and weight (allometric) on CL, as two additive terms (see below), weight on V. eGFR is the Schwartz 1976 formula (the only reference given), eGFR (mL/min/1.73 m2) = 0.55 x HT (cm) / SCR (mg/dL), computed in the model with SCR in umol/L divided by 88.4; it is captured.
 - **Ambiguity:** the article cites only the original Schwartz 1976 equation and does not report the k constants used by age or sex. **Choice:** k = 0.55 (Schwartz 1976, children and adolescent girls) for all patients; with the median height and SCR it gives 226 mL/min/1.73 m2, close to the median eGFR of Table 1 (209.4).
-- **Ambiguity:** the footnote of Table 2 prints the final model as CL = [6.184 + (eGFR/209.4)^1.627 + (WGT/27.8)^0.75] (eta1 + IOV) and V = [18.942 + (WGT/27.8)^1] eta2, with additive covariate terms. Additive terms equal to 1 at the reference values are not a usual NONMEM parameterization and would give a typical CL of 8.2 L/h. **Choice:** multiplicative power model, CL = 6.184 x (eGFR/209.4)^1.627 x (WT/27.8)^0.75 x exp(eta1 + IOV) and V = 18.942 x (WT/27.8) x exp(eta2).
-- **Ambiguity:** with either reading, the typical CL (6.2 L/h for 27.8 kg) and V (18.9 L) are lower than the means of the individual estimates (Table 3: CL 14.0 +/- 5.5 L/h, V 25.4 +/- 8.7 L, AUC 26.0 mg.h/L for a mean dose of 334 mg, half-life 1.36 h). The typical half-life (2.1 h) and the typical AUC (54 mg.h/L for 334 mg) are about twice the reported means. **Choice:** the Table 2 estimates are kept as published; simulated exposures are therefore higher than those of Table 3 and of the authors' simulations. For example, 20 mg/kg every 6 h in the typical child (eGFR 209) gives Cmax 29.2 and Cmin 5.7 mg/L, whereas Table 6 reports Cmax > 25 mg/L in only 28.6% and Cmin > 1.125 mg/L in only 50.9% of simulated children with eGFR <= 250. MAP Bayesian estimation with this model should be checked against observed concentrations.
+- **Ambiguity:** the footnote of Table 2 prints the final model as CL = [6.184 + (eGFR/209.4)^1.627 + (WGT/27.8)^0.75] (eta1 + IOV) and V = [18.942 + (WGT/27.8)^1] eta2, without stating which "+" signs stand for products. Three readings were tested by Monte Carlo simulation in the conditions of the authors (1,000 children per regimen, weight fixed to 27.8 kg, eGFR sampled from a normal distribution of mean 228.1 and SD 79.7 mL/min/1.73 m2, published IIV and IOV, 1-h infusion, steady state) and compared with Table 3 (post hoc means: CL 14.0 L/h, V 25.4 L, half-life 1.36 h, AUC 26.0 mg.h/L for a mean dose of 334 mg) and Table 6:
+  - fully multiplicative, CL = 6.184 x (eGFR/209.4)^1.627 x (WT/27.8)^0.75 (typical CL 6.2 L/h): mean simulated CL 9.1 L/h and half-life 3.6 h; 10 mg/kg every 6 h (eGFR <= 250) gives Cmin > 0.56 mg/L in 89% (Table 6: 50.9%) and Cmax > 25 mg/L in 25% (Table 6: 1.0%);
+  - fully additive, CL = 6.184 + (eGFR/209.4)^1.627 + (WT/27.8)^0.75 (typical CL 8.2 L/h): mean CL 9.4 L/h, half-life 2.2 h; Cmin > 0.56 mg/L in 74%;
+  - multiplicative on the sum of the two covariate terms, CL = 6.184 x [(eGFR/209.4)^1.627 + (WT/27.8)^0.75] (typical CL 12.4 L/h), with V = 18.942 x (WT/27.8): mean CL 15.8 L/h, V 25.2 L, half-life 1.35 h, AUC 29.1 mg.h/L; 10, 15, 20, 25 and 30 mg/kg every 6 h (eGFR <= 250) give Cmin > 0.56 mg/L in 52, 59, 64, 66 and 69% (Table 6: 50.9, 57.8, 62.5, 65.7, 67.9%), Cmin > 1.125 mg/L in 37, 46, 52, 56 and 59% (35.2, 45.1, 50.9, 54.6, 57.8%) and every 8 h Cmin > 0.56 mg/L in 33, 40, 44, 48 and 50% (31.2, 39.7, 44.4, 47.2, 50.1%); the simulated mean concentrations after 10.3 mg/kg every 6 h (1.5 h: 7.9 mg/L; 5.83 h: 1.1 mg/L) match the measured values (7.6 and 1.0 mg/L).
+  **Choice:** CL = 6.184 x [(eGFR/209.4)^1.627 + (WT/27.8)^0.75] x exp(eta1 + IOV) and V = 18.942 x (WT/27.8) x exp(eta2) (the first "+" of each equation read as a product), the only reading that reproduces the post hoc estimates, the measured concentrations and Table 6. Remaining differences: for eGFR > 250 mL/min/1.73 m2, the simulated Cmin target attainment is lower than in Table 6 (10 mg/kg every 6 h, Cmin > 0.56 mg/L: 24% vs 37.8%), and the simulated Cmax > 25 mg/L (end of infusion) is slightly higher for eGFR <= 250 (20 mg/kg every 6 h: 41% vs 28.6%; 15% if Cmax is taken 30 min after the end of the infusion).
 - Default covariates: medians of Table 1: WT 27.8 kg, HT 131.5 cm, SCR 28 umol/L (0.32 mg/dL).
 - IIV (Table 2, CV%): CL 45.2%, V 56.7%, converted with omega^2 = ln(1 + CV^2): 0.1856 and 0.2768 (the text also reports 46.4%).
 - IOV on CL: CV 20.0% (omega^2 0.0392), estimated over up to three monitoring occasions; implemented with two paired occasions (covariate OCC). IOV on V was not retained.
@@ -36,13 +39,13 @@ code <- '
 [PROB]
 Maximova et al. 2022 - intravenous aciclovir in oncologic children (HSCT or chemotherapy)
 (120 children, 374 TDM samples, NONMEM 7.4). One-compartment model, first-order elimination.
-Covariates: Schwartz eGFR (computed from HT and SCR, power) and weight (allometry) on CL, weight on V.
+Covariates: CL = TVCL x [(eGFR/209.4)^1.627 + (WT/27.8)^0.75] (Schwartz eGFR computed from HT and SCR), weight on V.
 IIV on CL and V, IOV on CL (two occasions). Proportional residual error.
 
 [SET] end = 24, delta = 0.1
 
 [PARAM] @annotated
-TVCL     : 6.184  : Clearance for eGFR 209.4 mL/min/1.73 m2 and 27.8 kg (L/h) (ambiguous, see Notes)
+TVCL     : 6.184  : Clearance coefficient, CL = 12.37 L/h for eGFR 209.4 mL/min/1.73 m2 and 27.8 kg (L/h) (ambiguous, see Notes)
 TH_GFR   : 1.627  : Exponent of eGFR on CL
 EGFR_REF : 209.4  : Reference eGFR, median (mL/min/1.73 m2)
 WT_REF   : 27.8   : Reference weight, median (kg)
@@ -65,7 +68,7 @@ CENT : Central compartment, aciclovir (mg) [ADM, OBS]
 [MAIN]
 double EGFR = SCHW_K * HT / (SCR / 88.4);
 double IOVCL = (OCC == 2) ? (ETA4 + ETA(4)) : (ETA3 + ETA(3));
-double CL = TVCL * pow(EGFR / EGFR_REF, TH_GFR) * pow(WT / WT_REF, 0.75) * exp(ETA1 + ETA(1) + IOVCL);
+double CL = TVCL * (pow(EGFR / EGFR_REF, TH_GFR) + pow(WT / WT_REF, 0.75)) * exp(ETA1 + ETA(1) + IOVCL);
 double V  = TVV * (WT / WT_REF) * exp(ETA2 + ETA(2));
 
 [ODE]
