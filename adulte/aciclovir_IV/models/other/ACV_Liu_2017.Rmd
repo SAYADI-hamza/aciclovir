@@ -11,7 +11,7 @@ Reference: doi:10.1080/02713683.2016.1231323 (Curr Eye Res 2017;42(7):1035-1038;
 
 ## Notes
 
-- The model was developed from oral valaciclovir data (see `adulte/valaciclovir_VO/models/VACV_Liu_2017.Rmd`); the authors simulated IV aciclovir 700 mg every 8 h (10 mg/kg for 70 kg) as the standard-of-care comparator. This file is the IV version, with the same disposition and vitreous parameters.
+- The model was developed from oral valaciclovir data (see `adulte/valaciclovir_VO/models/other/VACV_Liu_2017.Rmd`); the authors simulated IV aciclovir 700 mg every 8 h (10 mg/kg for 70 kg) as the standard-of-care comparator. This file is the IV version, with the same disposition and vitreous parameters.
 - Dose: `amt` in mg of aciclovir. **Ambiguity:** the infusion duration of the simulated IV regimen is not reported. **Choice:** 1-h infusion (`rate = amt / 1`).
 - Serum model (fixed literature values, Table 1): one-compartment, Vcentral 49.6 L, CLstd 19.7 L/h at 30 years, CL = CLstd - 0.1 x (AGE - 30) (L/h).
 - Vitreous compartment: dAv/dt = Qv x (1 - HC) x (C - Cv/Kp), Vvitreal 0.004 L, Qretinal 0.26 (printed mL/h, used as 0.00026 L/h, see the oral version), hematocrit 47% (men) or 41% (women), Kp 0.255.

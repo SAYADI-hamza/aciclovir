@@ -1,5 +1,5 @@
 ---
-title: "Valaciclovir - Sun et al. 2026"
+title: "Aciclovir - Sun et al. 2026"
 output: html_document
 ---
 
@@ -11,15 +11,15 @@ Reference: doi:10.1016/j.ejps.2026.107496 (Eur J Pharm Sci 2026;221:107496; Tabl
 
 ## Notes
 
-- Model: extension of LeiCNS-PK3.0 (see `ACV_Sun_2025.Rmd` for the same CNS structure) with (1) an asymmetry factor at the brain cell membrane derived from Kp,uu,cell and (2) intracellular conversion of aciclovir to aciclovir-triphosphate (TP) in brain ICF, dC_TP/dt = kform x C_ICF - kelim x C_TP (Eq. 3). Plasma and lumbar CSF data after oral valaciclovir (Lycke et al. 2003, 1000 mg three times daily; Smith et al. 2010, 2000 mg four times daily) were used for the human plasma model and for validation. This file is the oral valaciclovir version (the plasma model was estimated from these data); the IV aciclovir version used by the authors for their simulations is `adulte/aciclovir_IV/models/ACV_Sun_2026.Rmd`, with the same CNS model.
-- Plasma model (Table 2, human aciclovir): one-compartment, CLCen/F 917 mL/min, VCen/F 176,745 mL, ka 0.025 min-1, Tlag 51 min (printed "min-1"), F 54.5% (fixed, Soul-Lawton et al.). The apparent parameters are used directly (F = 1 in the model): CL/F 55.0 L/h, V/F 176.7 L, ka 1.5 h-1, lag time 0.85 h. **Ambiguity:** the dose basis of the apparent parameters (mg of valaciclovir or aciclovir equivalents) is not stated. **Choice:** `amt` in mg of valaciclovir without molar conversion (typical steady state: 1000 mg every 8 h gives Cmax 4.2, Cmin 0.65 mg/L and AUC8 18.2 mg.h/L, versus Cmax 6.1 and Cmin 0.70 mg/L observed by Lycke et al. 2003; 2000 mg every 6 h gives Cmax 9.3 mg/L and AUC6 36.4 mg.h/L in plasma and Cmax 1.7 mg/L and AUC6 9.4 mg.h/L in lumbar CSF, versus 9.5, 30.9, 1.8 and 8.3 observed by Smith et al. 2010; within the 2-fold error reported by the authors). With doses in aciclovir equivalents, the predicted AUC would be 31% lower.
+- Model: extension of LeiCNS-PK3.0 (see `ACV_Sun_2025.Rmd` for the same CNS structure) with (1) an asymmetry factor at the brain cell membrane derived from Kp,uu,cell and (2) intracellular conversion of aciclovir to aciclovir-triphosphate (TP) in brain ICF, dC_TP/dt = kform x C_ICF - kelim x C_TP (Eq. 3). Plasma and lumbar CSF data after oral valaciclovir (Lycke et al. 2003, 1000 mg three times daily; Smith et al. 2010, 2000 mg four times daily) were used for the human plasma model and for validation. This file is the IV aciclovir version used by the authors for the simulations (10 mg/kg three times daily); the oral valaciclovir version is `adulte/valaciclovir_VO/models/other/VACV_Sun_2026.Rmd`.
+- Plasma model (Table 2, human aciclovir): one-compartment, CLCen/F 917 mL/min, VCen/F 176,745 mL, ka 0.025 min-1, Tlag 51 min (printed "min-1"), F 54.5% (fixed, Soul-Lawton et al. 1995, molar absolute bioavailability of aciclovir from valaciclovir). **Ambiguity:** the dose basis of the apparent parameters and the way F was used to derive the IV parameters are not stated. The apparent CL/F (55 L/h) is the clearance per mg of valaciclovir with F not applied: it is close to dose/AUC of the source data (Smith et al. 2010, 2000 mg every 6 h: 2000/30.9 = 65 L/h; Soul-Lawton 1995, 1000 mg: 1000/20.1 = 50 L/h); with doses in aciclovir equivalents the model would predict half the observed AUC. **Choice:** CL = CL/F x F x MWR and V = V/F x F x MWR (MWR = 225.2/324.3 = 0.694, F being a molar bioavailability), i.e. CL 20.8 L/h and V 66.8 L, consistent with the IV clearance measured by Soul-Lawton et al. (322 mL/min, 19.3 L/h) in the study from which F was taken. Without the molar conversion (MWR = 1), CL would be 30.0 L/h and V 96.3 L, i.e. a 31% lower exposure.
 - CNS physiology: healthy human values of LeiCNS-PK3.0 (Saleh 2021): VECF 253 mL, VICF 1000 mL, VLYS 12.5 mL, VMV 47 mL (Sun 2025 Table S1; Saleh gives 45), VLV 20 mL, VTFV 3 mL, VCM 1 mL, VSAS 116 mL, QCBF 689 mL/min, QECF 0.2 mL/min, QCSF 0.42 mL/min, SABBB 150,000 cm2, SABCSFB 15,000 cm2, BBB and BCSFB width 0.5 um, SABCM 2,666,520 cm2, SALYS 1,980,260 cm2, effective surface areas 99.8% (transcellular), 0.004% and 0.016% (paracellular), pH 7.4/7.3/7.3/7.0/5.0. Drug: MW 225.2, logP -0.95, pKa 11.98, pKb 3.02 (pH factors > 0.99 everywhere).
 - Kp,uu (Table 1, human aciclovir): Kp,uu,BBB 0.32 (rat value), Kp,uu,BCSFB 0.26 (Lycke 2003, Smith 2010), Kp,uu,cell 1 (AF at the brain cell membrane = 1, passive exchange). Published efflux asymmetry factors (AF in = 1): AFout,ECF 34.51, AFout,LV 1456.66, AFout,TFV 1469.38; they are used directly.
 - **Ambiguity:** the paracellular clearances of the published model include a pore-size restriction that is not published; with unrestricted diffusion the published AF would not give the published Kp,uu. **Choice:** the paracellular clearances of the BBB and BCSFB are back-calculated in the model from the steady-state mass balance so that the published AF give Kp,uu,ECF = 0.32 and Kp,uu,LV = 0.26 (about 5.4 and 18 mL/min, versus 45.6 and 18.3 mL/min for unrestricted diffusion); transcellular clearances Qt = 0.5 x P0 x SA x 0.998 with log10 P0 = 0.939 x logP - 6.21 (cm/s).
 - Brain cell membrane and lysosomes: as in `ACV_Sun_2025.Rmd` (CLwo = 0.5 x P0 x SABCM, CLow = CLwo / Poct, QLYSO = 0.5 x P0 x SALYS; assumptions, not published). Plasma unbound fraction 1 (assumed).
 - Aciclovir-TP: kelim = ln(2)/27 h (Sauer et al. 2020); kform = (CTP,ss/Cparent,ss) x kelim (Eq. 4), with the in vitro steady-state ratio in HSV-infected cells, which is not reported. **Choice:** ratio set to 1 (`TP_RATIO`); the captured `TP_REL` is the TP concentration divided by this unknown ratio (relative exposure only; the shape and accumulation do not depend on the ratio). With a 27-h half-life, TP keeps increasing over the first six doses, as reported by the authors, whereas brain ECF aciclovir is at steady state after the first interval.
-- Variability and residual error: none reported. For mapbayr compatibility only, nominal random effects of 30% (omega^2 0.0862, assumed) on plasma CL and V, and 20% proportional errors (assumed) in plasma (cmt 2) and lumbar CSF (cmt 11), captured as `PAR` and `MET` (mapbayr names; MET is not a metabolite here).
-- The IV version derives the IV clearance and volume as CL/F x F x MWR (20.8 L/h) and V/F x F x MWR (66.8 L), see `adulte/aciclovir_IV/models/ACV_Sun_2026.Rmd`.
+- Variability and residual error: none reported. For mapbayr compatibility only, nominal random effects of 30% (omega^2 0.0862, assumed) on plasma CL and V, and 20% proportional errors (assumed) in plasma (cmt 1) and lumbar CSF (cmt 10), captured as `PAR` and `MET` (mapbayr names; MET is not a metabolite here).
+- Simulation check (70 kg, 700 mg every 8 h, 1-h infusion, day 6): plasma Cmax 9.8, Cmin 1.1 mg/L, AUC8 33.6 mg.h/L; brain ECF Cmax 2.6, Cmin 0.50 mg/L, AUC8 10.8 mg.h/L; lumbar CSF Cmax 1.3, Cmin 0.82 mg/L, AUC8 8.7 mg.h/L. The CNS-to-plasma AUC ratios equal the Kp,uu (0.32 and 0.26) and brain ECF troughs fall below the IC50 of HSV and VZV (0.56 and 1.125 mg/L), as reported (Fig. 3; the article gives no numerical exposure). Accumulation ratio (day 6 versus first interval): 1.2 for brain ECF aciclovir and 27 for TP. Back-calculated paracellular clearances: 5.3 mL/min (BBB) and 18.2 mL/min (BCSFB).
 
 ```{r setup, message = FALSE}
 library(mrgsolve)
@@ -33,8 +33,8 @@ library(ggplot2)
 code <- '
 [PROB]
 Sun et al. 2026 - aciclovir CNS PBPK model LeiCNS-PK3.2 (healthy human CNS physiology, empirical plasma model estimated
-in Monolix from mean valaciclovir data, intracellular aciclovir-triphosphate module). Oral valaciclovir.
-One-compartment plasma model with lag time and first-order absorption (apparent parameters), connected to the CNS model (microvasculature, ECF, cell membrane, ICF with TP formation,
+in Monolix from mean valaciclovir data, intracellular aciclovir-triphosphate module). IV aciclovir.
+One-compartment plasma model connected to the CNS model (microvasculature, ECF, cell membrane, ICF with TP formation,
 lysosomes, lateral ventricles, 3rd-4th ventricles, cisterna magna, SAS). No IIV or residual error reported
 (nominal values for mapbayr only).
 
@@ -43,8 +43,8 @@ lysosomes, lateral ventricles, 3rd-4th ventricles, cisterna magna, SAS). No IIV 
 [PARAM] @annotated
 CLF_ML   : 917       : Apparent plasma clearance CL/F (mL/min)
 VF_ML    : 176745    : Apparent plasma volume V/F (mL)
-KA_MIN   : 0.025     : Absorption rate constant (1/min)
-TLAG_MIN : 51        : Lag time (min)
+FVAL     : 0.545     : Molar bioavailability of aciclovir from valaciclovir (Soul-Lawton 1995)
+MWR      : 0.694     : Molar conversion, valaciclovir mg to aciclovir mg (225.2/324.3) (ambiguous, see Notes)
 VSAS_ML  : 116       : Subarachnoid space volume (mL)
 SABBB    : 150000    : BBB surface area (cm2)
 QCSF_ML  : 0.42      : CSF flow (mL/min)
@@ -81,8 +81,7 @@ ETA1     : 0         : Nominal random effect CL (not estimated)
 ETA2     : 0         : Nominal random effect V (not estimated)
 
 [CMT] @annotated
-DEPOT : Depot, valaciclovir dose (mg) [ADM]
-CENT : Plasma central compartment, aciclovir (mg) [OBS]
+CENT : Plasma central compartment, aciclovir (mg) [ADM, OBS]
 MV   : Brain microvasculature (mg)
 ECF  : Brain extracellular fluid (mg)
 MEM  : Brain cell membrane, bound (mg)
@@ -96,10 +95,8 @@ TPC  : Aciclovir-triphosphate in brain ICF, relative concentration (mg/L equival
 
 [MAIN]
 // volumes (L) and flows (L/h); mL/min x 0.06 = L/h, mL/s x 3.6 = L/h
-double CLE  = CLF_ML * 0.06 * exp(ETA1 + ETA(1));
-double VCEN = VF_ML / 1000 * exp(ETA2 + ETA(2));
-double KA = KA_MIN * 60;
-ALAG_DEPOT = TLAG_MIN / 60;
+double CLE  = CLF_ML * FVAL * MWR * 0.06 * exp(ETA1 + ETA(1));
+double VCEN = VF_ML * FVAL * MWR / 1000 * exp(ETA2 + ETA(2));
 double VSAS = VSAS_ML / 1000;
 double VECF = VECF_ML / 1000;
 double VICF = VICF_ML / 1000;
@@ -152,8 +149,7 @@ double J_TFV = (QP_BCSFB + QT_BCSFB * PHF_MV) * CMV - (QP_BCSFB + QT_BCSFB * AFE
 double J_EM  = CLWO * PHF_ECF * CECF - CLOW * CMEM;
 double J_MI  = CLOW * CMEM - CLWO * PHF_ICF * CICF;
 double J_IL  = QLYSO * (PHF_ICF * CICF - PHF_LYS * CLYS);
-dxdt_DEPOT = -KA * DEPOT;
-dxdt_CENT = KA * DEPOT - CLE * CPL - QCBF * (CPL - CMV) + QCSF * CSASc;
+dxdt_CENT = -CLE * CPL - QCBF * (CPL - CMV) + QCSF * CSASc;
 dxdt_MV   =  QCBF * (CPL - CMV) - J_BBB - J_LV - J_TFV;
 dxdt_ECF  =  J_BBB - J_EM - QECF * CECF;
 dxdt_MEM  =  J_EM - J_MI;
@@ -181,7 +177,7 @@ double MET = SAS / VSAS;
 double C_ECF = ECF / VECF;
 double TP_REL = TPC;
 double DV = PAR * (1 + EPS(1)) + EPS(2);
-if (self.cmt == 11) DV = MET * (1 + EPS(3)) + EPS(4);
+if (self.cmt == 10) DV = MET * (1 + EPS(3)) + EPS(4);
 
 [CAPTURE] @annotated
 DV     : Aciclovir concentration, plasma or lumbar CSF according to cmt (mg/L)
@@ -192,33 +188,34 @@ TP_REL : Aciclovir-triphosphate in brain ICF, relative (TP concentration / TP_RA
 QP_BBB : Back-calculated BBB paracellular clearance (L/h)
 QP_BCSFB : Back-calculated BCSFB paracellular clearance (L/h)
 '
-mod <- mcode("VACV_Sun_2026", code)
+mod <- mcode("ACV_Sun_2026", code)
 ```
 
 ```{r simulation}
-# Validation regimens of the article (Table S1): valaciclovir 1000 mg three times daily (Lycke et al. 2003)
-# and 2000 mg four times daily (Smith et al. 2010), day 4
-data <- data.frame(ID = 1:2, time = 0, evid = 1, cmt = 1, amt = c(1000, 2000), ii = c(8, 6), addl = c(11, 15))
-
+# Standard regimen 10 mg/kg every 8 h (70 kg, 1-h infusion), six days
 out <- mod %>%
   zero_re() %>%
-  data_set(data) %>%
-  mrgsim(end = 96, delta = 0.02) %>%
-  as.data.frame() %>%
-  left_join(data %>% select(ID, ii), by = "ID") %>%
-  filter(time >= 96 - ii) %>%
-  mutate(time = time - (96 - ii), Regimen = factor(ID, labels = c("1000 mg q8h", "2000 mg q6h")))
+  ev(amt = 700, rate = 700, ii = 8, addl = 17) %>%
+  mrgsim(end = 144, delta = 0.02) %>%
+  as.data.frame()
 
-long <- out %>% select(Regimen, time, Plasma = PAR, Brain_ECF = C_ECF, Lumbar_CSF = MET) %>%
-  pivot_longer(c(Plasma, Brain_ECF, Lumbar_CSF), names_to = "Site", values_to = "Conc")
-long %>% group_by(Regimen, Site) %>%
-  summarise(Cmax = max(Conc), Cmin = min(Conc), AUCtau = sum(diff(time) * (head(Conc, -1) + tail(Conc, -1)) / 2),
-            .groups = "drop")
+ss <- out %>% filter(time >= 136) %>% mutate(time = time - 136)
+long <- ss %>% select(time, Plasma = PAR, Brain_ECF = C_ECF, Lumbar_CSF = MET) %>%
+  pivot_longer(-time, names_to = "Site", values_to = "Conc")
+# Article (Fig. 3): brain ECF troughs below the IC50 (0.56 / 1.125 mg/L), TP accumulating over six doses
+long %>% group_by(Site) %>%
+  summarise(Cmax = max(Conc), Cmin = min(Conc), AUC8 = sum(diff(time) * (head(Conc, -1) + tail(Conc, -1)) / 2))
+c(QP_BBB_mL_min = out$QP_BBB[1] / 0.06, QP_BCSFB_mL_min = out$QP_BCSFB[1] / 0.06)
 
-ggplot(long, aes(time, Conc, colour = Site)) +
+# Accumulation ratio AUC(ss)/AUC(first interval) for brain ECF aciclovir and intracellular TP (relative)
+auc <- function(d, v) sum(diff(d$time) * (head(d[[v]], -1) + tail(d[[v]], -1)) / 2)
+first <- out %>% filter(time <= 8)
+c(Rac_ECF = auc(ss, "C_ECF") / auc(first, "C_ECF"), Rac_TP = auc(ss, "TP_REL") / auc(first, "TP_REL"))
+
+ggplot(out, aes(time, TP_REL / mean(ss$TP_REL))) +
   geom_line() +
-  facet_wrap(~Regimen) +
+  geom_line(aes(y = C_ECF / mean(ss$C_ECF)), colour = "grey50") +
   theme_bw() +
-  labs(x = "Time after dose (h)", y = "Aciclovir concentration (mg/L)", colour = NULL,
-       title = "Sun et al. 2026 - oral valaciclovir, steady state")
+  labs(x = "Time (h)", y = "Concentration / average steady-state concentration",
+       title = "Sun et al. 2026 - brain ECF aciclovir (grey) and intracellular TP (black), 10 mg/kg q8h")
 ```

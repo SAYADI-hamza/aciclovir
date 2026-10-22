@@ -9,16 +9,25 @@ precision dosing.
 
 ```
 <population>/
-├── aciclovir_IV/models/ACV_<FirstAuthor>[_<year>[a|b]].Rmd      intravenous aciclovir
-└── valaciclovir_VO/models/VACV_<FirstAuthor>[_<year>[a|b]].Rmd  oral valaciclovir
+├── aciclovir_IV/models/                intravenous aciclovir
+│   ├── parametric/ACV_<FirstAuthor>[_<year>[a|b]].Rmd
+│   └── other/ACV_<FirstAuthor>[_<year>[a|b]].Rmd
+└── valaciclovir_VO/models/             oral valaciclovir
+    ├── parametric/VACV_<FirstAuthor>[_<year>[a|b]].Rmd
+    └── other/VACV_<FirstAuthor>[_<year>[a|b]].Rmd
 ```
 
-| Folder | Population | Route | Prefix | Models |
-|---|---|---|---|---|
-| `adulte/aciclovir_IV/` | Adults | Intravenous aciclovir | `ACV_` | 4 (including 3 illustrative models: 2 CNS PBPK, 1 vitreous) |
-| `adulte/valaciclovir_VO/` | Adults | Oral valaciclovir | `VACV_` | 6 (including 2 illustrative models: 1 CNS PBPK, 1 vitreous) |
-| `pediatrie/aciclovir_IV/` | Children and neonates | Intravenous aciclovir | `ACV_` | 5 |
-| `pediatrie/valaciclovir_VO/` | Children | Oral valaciclovir | `VACV_` | 3 |
+- `parametric/`: parametric population pharmacokinetic models (nonlinear mixed-effects, NONMEM, Monolix), suitable for
+  simulation and MAP Bayesian estimation with mapbayr.
+- `other/`: nonparametric population models (NPAG, approximated by log-normal distributions), physiologically based
+  (PBPK) models and illustrative models without estimated interindividual variability.
+
+| Folder | Population | Route | Prefix | Parametric popPK | Other models |
+|---|---|---|---|---|---|
+| `adulte/aciclovir_IV/` | Adults | Intravenous aciclovir | `ACV_` | 0 | 4 (1 nonparametric, 2 CNS PBPK, 1 vitreous) |
+| `adulte/valaciclovir_VO/` | Adults | Oral valaciclovir | `VACV_` | 3 | 3 (1 nonparametric, 1 CNS PBPK, 1 vitreous) |
+| `pediatrie/aciclovir_IV/` | Children and neonates | Intravenous aciclovir | `ACV_` | 5 | 0 |
+| `pediatrie/valaciclovir_VO/` | Children | Oral valaciclovir | `VACV_` | 3 | 0 |
 
 When an article describes several routes (or both adults and children), each folder contains the version of
 the model for its route and population; the files are named after the same article. The year is added when an author has several articles in the
