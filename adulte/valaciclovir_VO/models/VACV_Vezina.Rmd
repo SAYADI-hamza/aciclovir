@@ -18,6 +18,7 @@ Reference: doi:10.1177/0091270009351884 (J Clin Pharmacol 2010;50(7):734-742; Ta
 - IIV (Table II, CV%, "proportional error model, log-normal distribution"): CL/F 11.8%, V/F 20.0%, converted with omega^2 = ln(1 + CV^2): 0.0138 and 0.0392. No IIV on ka. The IIV estimates are imprecise (RSE 109% and 196%).
 - Residual error: log-normal (exponential) for plasma, CV 36.9%, coded as an additive error on the log scale with variance ln(1 + 0.369^2) = 0.128 (proportional component 0).
 - Simulation check: 1500 mg twice daily gives a steady-state AUC12 of 30.1 mg.h/L in the typical subject (article: median AUCpl 29,900 ng.h/mL, printed "ng.L/h"), and an oral wash AUC12 of 0.34 mg.h/L (article: 341 ng.h/mL).
+- Covariates: none tested significant (no covariate in the final model). The AUC reported by the authors is derived from the empirical Bayes estimates, i.e. Dose/(CL/F) with the dose in mg of valaciclovir: 1500/49.9 = 30.1 mg.h/L. Monte Carlo check (1000 replicates of 8 subjects with the published IIV): median of the smallest and largest individual AUC12 25.5 and 35.3 mg.h/L (article range 25.4-34.3 mg.h/L), consistent with the published IIV of CL/F. With the molar conversion of the dose (x 0.694) the AUC12 would be 20.9 mg.h/L, inconsistent with the article.
 
 ```{r setup, message = FALSE}
 library(mrgsolve)
